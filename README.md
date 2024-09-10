@@ -3,10 +3,10 @@
 ## Overview
 
 ## Directory Structure
-**Project 1: Exploratory Analysis Report**
+### Project 1: Exploratory Analysis Report
 
-**Project 2: Scientific Questions and Model Selection**
+### Project 2: Scientific Questions and Model Selection
 
-**Project 3: Simulation**
+### Project 3: Simulation
 
 Contributor: Yanwei (Iris) Tong
