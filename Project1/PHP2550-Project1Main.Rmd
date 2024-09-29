@@ -1,0 +1,38 @@
+---
+title: "IMPACT OF WEATHER ON MARATHON PERFORMANCE ACROSS AGE AND GENDER"
+subtitle: "PHP2550 Project 1: An exploratory data analysis"
+author: "Yanwei (Iris) Tong"
+date: "2024-09-29"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+   - "\\usepackage{xcolor}"
+---
+
+```{r setup, include=FALSE}
+# Set up knit environment
+knitr::opts_chunk$set(echo = F)
+knitr::opts_chunk$set(error = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(message = F)
+
+# Load necessary packages
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(naniar)
+library(gtsummary)
+```
+
+
+
+\pagebreak
+
+## **Code Appendix**
+
+```{r, ref.label = knitr::all_labels()}
+#| echo: true
+#| eval: false
+```
