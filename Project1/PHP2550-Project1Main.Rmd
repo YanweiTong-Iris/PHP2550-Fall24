@@ -6,14 +6,18 @@ date: "2024-09-29"
 output: 
   pdf_document:
     latex_engine: xelatex
+bibliography: references.bib
+link-citations: yes
 header-includes:
    - "\\usepackage{xcolor}"
+abstract: 
 ---
 
 ```{r setup, include=FALSE}
 # Set up knit environment
 knitr::opts_chunk$set(echo = F)
 knitr::opts_chunk$set(error = F)
+knitr::opts_chunk$set(include = F)
 knitr::opts_chunk$set(warning = F)
 knitr::opts_chunk$set(message = F)
 
@@ -24,15 +28,40 @@ library(knitr)
 library(ggplot2)
 library(naniar)
 library(gtsummary)
+
+# Define data path
+data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
+
+# Import datasets
+main_data = read.csv(paste0(data_path, "/project1.csv"))
+aqi_data = read.csv(paste0(data_path, "/aqi_values.csv"))
 ```
+
+
+## \textcolor{orange}{INTRODUCTION}
+
+## METHODS
+### Data Overview
+```{r}
+
+```
+
+
+### Statistical Analysis
+
+## RESULTS
+
+
+
+## CONCLUSION
+
 
 
 
 \pagebreak
+## Data Privacy
 
-## **Code Appendix**
+## Code availability
 
-```{r, ref.label = knitr::all_labels()}
-#| echo: true
-#| eval: false
-```
+## Reference
+
