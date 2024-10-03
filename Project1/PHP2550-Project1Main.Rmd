@@ -15,13 +15,12 @@ bibliography: 0-references.bib
 
 ```{r setup, include=FALSE}
 # Set up knit environment
-knitr::opts_chunk$set(echo = F)
-knitr::opts_chunk$set(error = F)
-knitr::opts_chunk$set(include = F)
-knitr::opts_chunk$set(warning = F)
-knitr::opts_chunk$set(message = F)
-knitr::write_bib(x = c("rmarkdown", "knitr"), 
-                 file = "0-references.bib")
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      error = FALSE)
+#knitr::opts_chunk$set(out.width = "300px")
+# knitr::write_bib(x = c("rmarkdown", "knitr"), file = "0-references.bib")
 
 # Load necessary packages
 library(tidyverse)
@@ -36,7 +35,7 @@ data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
 
 # Import datasets
 main_data = read.csv(paste0(data_path, "/project1.csv"))
-aqi_box_data = read.csv(paste0(data_path, "/aqi_values_latlon_box.csv"))
+aqi_data = read.csv(paste0(data_path, "/aqi_values.csv"))
 record_data = read.csv(paste0(data_path, "/course_record.csv"))
 ```
 
@@ -54,10 +53,35 @@ merged_main <- main_data %>%
   left_join(record_data[, c("Year", "Sex", "CR", "Race_code")], 
             by = c("Race..0.Boston..1.Chicago..2.NYC..3.TC..4.D." = "Race_code", 
                    "Year" = "Year",
-                   "Sex..0.F..1.M." = "Sex"))
+                   "Sex..0.F..1.M." = "Sex")) %>%
+  dplyr::rename(Race_code = Race..0.Boston..1.Chicago..2.NYC..3.TC..4.D.,
+         Sex = Sex..0.F..1.M.,
+         Age = Age..yr.) %>%
+  mutate(Gender = factor(ifelse(Sex == 0, "Female", "Male"))) %>%
+  mutate(Marathon = case_when(Race_code == 0 ~ "Boston",
+                          Race_code == 1~ "NYC",
+                          Race_code == 2 ~ "Chicago",
+                          Race_code == 3 ~ "Twin Cities",
+                          Race_code == 4 ~ "Grandmas")) 
 
-#Clean up AQI by box
-aqi_box_data = aqi_box_data %>% distinct()
+
+#Clean up AQI by CBSA
+aqi_data = aqi_data %>% 
+  distinct()
+
+aqi_mean = aqi_data %>%
+  group_by(marathon, date_local, parameter, sample_duration) %>%
+  summarise(daily_mean = mean(arithmetic_mean, na.rm = TRUE)) %>%
+  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) 
+
+aqi_pivot = aqi_mean[,c("marathon", "date_local", "parameter_duration", "daily_mean")] %>%
+  pivot_wider(names_from = parameter_duration, values_from = daily_mean) %>%
+  mutate(Year = year(date_local))
+
+merged_main = merged_main %>% 
+  left_join(aqi_pivot, 
+            by = c("Marathon" = "marathon",
+                   "Year" = "Year"))
 ```
 
 
@@ -67,13 +91,120 @@ Here, we would like to identify and explore the impacts of the following factors
 ## \textcolor{orange}{METHODS}
 ### Data Overview
 ```{r}
+# Baseline summary
+merged_main %>%
+  select(
+    Marathon,
+    Gender, 
+    Age
+  ) %>%
+  tbl_summary(
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    by = Marathon,
+    digits = all_continuous() ~ 2,
+    missing = "no",
+    type = list(
+      Gender ~ "categorical"
+    )
+  ) %>%
+  add_p() %>%
+  modify_caption(caption = "Participant Characteristics by Marathon, N = {N}") %>%
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = TRUE,
+    linesep = ""
+  ) %>%
+  kableExtra::kable_styling(
+    position = "center",
+    latex_options = c("striped", "repeat_header"),
+    stripe_color = "gray!15"
+  )
 
 ```
+
+```{r}
+merged_main  %>%
+  dplyr::select(
+    Marathon,
+    WBGT,
+    DP,
+    `Nitrogen dioxide (NO2)-1 HOUR`,
+    `Sulfur dioxide-1 HOUR`,
+    `Ozone-1 HOUR`,
+    `PM2.5 - Local Conditions-1 HOUR`
+  ) %>%
+  distinct() %>%
+  tbl_summary(
+    statistic = all_continuous() ~ c("{mean} ({sd})", "{min}, {max}"),
+    by = Marathon,
+    digits = all_continuous() ~ 2,
+    missing = "no",
+    type = list(
+      WBGT ~ "continuous2",
+      DP ~"continuous2",
+      `Sulfur dioxide-1 HOUR`  ~"continuous2",
+      `Nitrogen dioxide (NO2)-1 HOUR` ~"continuous2",
+      `Ozone-1 HOUR` ~"continuous2",
+      `PM2.5 - Local Conditions-1 HOUR` ~"continuous2"
+    ),
+    label = list(
+      DP = "DP (°C)",
+      `Nitrogen dioxide (NO2)-1 HOUR` = "NO$_2$ (parts per billion)",
+      `Sulfur dioxide-1 HOUR` = "SO$_2$ (parts per billion)",
+      `Ozone-1 HOUR` = "O$_3$, (parts per million)",
+      `PM2.5 - Local Conditions-1 HOUR` = "PM$_{2.5}, (μg/m$^3$)$"
+      # ,
+      # Mat_race = "Maternal race",
+      # SGA = "Small for gestational age",
+      # gender = "Infant gender",
+      # ga = "Obstetrical gestational age (weeks)",
+      # Del_method = "Delivery method",
+      # mat_chorio = "Maternal Chorioamnionitis"
+    )
+  ) %>%
+  modify_caption(caption = "Summary of weather and pollution parameters across five marathons, N = {N}") %>%
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = TRUE,
+    linesep = ""
+  ) %>%
+  kableExtra::kable_styling(
+    position = "center",
+    latex_options = c("striped", "repeat_header"),
+    stripe_color = "gray!15"
+  )
+
+```
+
 
 
 ### Statistical Analysis
 
 ## \textcolor{orange}{RESULTS}
+
+```{r, fig.width = 4, fig.height = 3}
+best_time_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
+   geom_smooth(method = "loess", se = TRUE, size = 1) +   # Loess smoothing with 95% CI
+  labs(
+    title = "Men vs Women",
+    x = "Age (yrs)",
+    y = "Best Time (%CR)"
+  ) +
+  scale_y_continuous(limits = c(0, 300)) +  
+   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
+    legend.title = element_blank(), 
+    legend.position = "right" 
+  )
+best_time_gender_age
+```
 
 
 
@@ -92,9 +223,8 @@ Here, we would like to identify and explore the impacts of the following factors
 
 
 \pagebreak
-
 ## **Code Appendix**
-```{r, ref.label = knitr::all_labels()}
-#| echo: true
-#| eval: false
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
 ```
+
+
