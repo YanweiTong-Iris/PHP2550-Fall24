@@ -170,9 +170,11 @@ merged_main  %>%
 
 
 
-# Plot the data with smoothing and 95% CI
+# Plot the data with smoothing 
 (best_time_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
-   geom_smooth(method = "loess", se = TRUE, size = 1) +   # Loess smoothing with 95% CI
+   geom_smooth(#method = "loess", 
+               se = TRUE, 
+               size = 0.5) +   # Loess smoothing with 95% CI
   labs(
     title = "Men vs Women",
     x = "Age (yrs)",
@@ -185,7 +187,39 @@ merged_main  %>%
     plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
     axis.title.x = element_text(size = 14),
     axis.title.y = element_text(size = 14),
-    legend.title = element_blank(),  # Remove the legend title
-    legend.position = "bottomright" 
+    legend.title = element_blank(), 
+    legend.position = "right" 
   ))
 
+# Plot performance vs age by 10-yr age category
+age_performance_summary <- merged_main %>%
+  mutate(Age_Group = cut(Age, breaks = seq(14, 100, by = 10), right = FALSE)) %>%
+  group_by(Age_Group, Gender) %>%
+  summarise(
+    mean_XCR = mean(X.CR, na.rm = TRUE),
+    sd_XCR = sd(X.CR, na.rm = TRUE),
+    n = n(),
+    se_XCR = sd_XCR / sqrt(n)  # Standard error
+  ) %>%
+  ungroup()
+
+best_time_gender_age <- ggplot(age_performance_summary, aes(x = Age_Group, y = mean_XCR, color = Gender)) +
+  geom_point(size = 1) +  
+  geom_line(aes(group = Gender), size = 1) +  
+  geom_errorbar(aes(ymin = mean_XCR - 1.96*se_XCR, ymax = mean_XCR + 1.96*se_XCR), width = 0.2) +  
+  labs(
+    title = "Men vs Women",
+    x = "Age (yrs)",
+    y = "Best Time (%CR)"
+  ) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
+    legend.title = element_blank(), 
+    legend.position = "right"
+  )
+
+print(best_time_gender_age)

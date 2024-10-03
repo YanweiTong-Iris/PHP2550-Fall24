@@ -156,13 +156,6 @@ merged_main  %>%
       `Sulfur dioxide-1 HOUR` = "SO$_2$ (parts per billion)",
       `Ozone-1 HOUR` = "O$_3$, (parts per million)",
       `PM2.5 - Local Conditions-1 HOUR` = "PM$_{2.5}, (μg/m$^3$)$"
-      # ,
-      # Mat_race = "Maternal race",
-      # SGA = "Small for gestational age",
-      # gender = "Infant gender",
-      # ga = "Obstetrical gestational age (weeks)",
-      # Del_method = "Delivery method",
-      # mat_chorio = "Maternal Chorioamnionitis"
     )
   ) %>%
   modify_caption(caption = "Summary of weather and pollution parameters across five marathons, N = {N}") %>%
@@ -187,13 +180,14 @@ merged_main  %>%
 
 ```{r, fig.width = 4, fig.height = 3}
 best_time_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
-   geom_smooth(method = "loess", se = TRUE, size = 1) +   # Loess smoothing with 95% CI
+   geom_smooth(method = "loess", se = TRUE, size = 0.5) +   # Loess smoothing with 95% CI
   labs(
     title = "Men vs Women",
     x = "Age (yrs)",
     y = "Best Time (%CR)"
   ) +
   scale_y_continuous(limits = c(0, 300)) +  
+  scale_x_continuous(breaks = seq(10, 100, by = 10)) +
    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
   theme_minimal() + 
   theme(
