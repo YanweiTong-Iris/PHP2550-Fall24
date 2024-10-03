@@ -6,11 +6,11 @@ date: "2024-09-29"
 output: 
   pdf_document:
     latex_engine: xelatex
-bibliography: references.bib
 link-citations: yes
 header-includes:
    - "\\usepackage{xcolor}"
 abstract: 
+bibliography: 0-references.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -20,6 +20,8 @@ knitr::opts_chunk$set(error = F)
 knitr::opts_chunk$set(include = F)
 knitr::opts_chunk$set(warning = F)
 knitr::opts_chunk$set(message = F)
+knitr::write_bib(x = c("rmarkdown", "knitr"), 
+                 file = "0-references.bib")
 
 # Load necessary packages
 library(tidyverse)
@@ -34,13 +36,35 @@ data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
 
 # Import datasets
 main_data = read.csv(paste0(data_path, "/project1.csv"))
-aqi_data = read.csv(paste0(data_path, "/aqi_values.csv"))
+aqi_box_data = read.csv(paste0(data_path, "/aqi_values_latlon_box.csv"))
+record_data = read.csv(paste0(data_path, "/course_record.csv"))
+```
+
+```{r}
+# Merge main and record data sets
+record_data <- record_data %>%
+  mutate(Sex = ifelse(Gender == "F", 0, 1)) %>%
+  mutate(Race_code = case_when(Race == "B"~0,
+                               Race == "C"~1,
+                               Race == "NY"~2,
+                               Race == "TC"~3,
+                               Race == "D" ~4))
+
+merged_main <- main_data %>%
+  left_join(record_data[, c("Year", "Sex", "CR", "Race_code")], 
+            by = c("Race..0.Boston..1.Chicago..2.NYC..3.TC..4.D." = "Race_code", 
+                   "Year" = "Year",
+                   "Sex..0.F..1.M." = "Sex"))
+
+#Clean up AQI by box
+aqi_box_data = aqi_box_data %>% distinct()
 ```
 
 
 ## \textcolor{orange}{INTRODUCTION}
+Here, we would like to identify and explore the impacts of the following factors on marathon performance across genders: 1) the increase in age, 2) environmental conditions and whether the impact differs across age and gender, and 3) 
 
-## METHODS
+## \textcolor{orange}{METHODS}
 ### Data Overview
 ```{r}
 
@@ -49,13 +73,14 @@ aqi_data = read.csv(paste0(data_path, "/aqi_values.csv"))
 
 ### Statistical Analysis
 
-## RESULTS
+## \textcolor{orange}{RESULTS}
 
 
 
-## CONCLUSION
+## \textcolor{orange}{CONCLUSION}
 
 
+## \textcolor{orange}{DISCUSSION}
 
 
 \pagebreak
@@ -65,3 +90,11 @@ aqi_data = read.csv(paste0(data_path, "/aqi_values.csv"))
 
 ## Reference
 
+
+\pagebreak
+
+## **Code Appendix**
+```{r, ref.label = knitr::all_labels()}
+#| echo: true
+#| eval: false
+```
