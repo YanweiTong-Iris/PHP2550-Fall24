@@ -4,13 +4,13 @@
 
 ### Overview
 
-This exploratory data analysis will focus on the following 3 aims:
+This exploratory data analysis focused on the following 3 aims:
 
 1.  Examine effects of increasing age on marathon performance in men and women;
 
 2.  Explore the impact of environmental conditions on marathon performance, and whether the impact differs across age and gender;
 
-3.  Identify the weather parameters (WBGT, Flag conditions, temperature, etc) that have the largest impact on marathon performance.
+3.  Identify the environmental parameters (WBGT, Flag conditions, temperature, air pollution etc) that have the largest impact on marathon performance.
 
 ### Directory Structure
 

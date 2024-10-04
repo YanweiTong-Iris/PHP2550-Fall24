@@ -10,6 +10,8 @@ library(knitr)
 library(ggplot2)
 library(naniar)
 library(gtsummary)
+library(gt)
+library(patchwork)
 
 # Define data path
 data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
@@ -24,7 +26,6 @@ record_data = read.csv(paste0(data_path, "/course_record.csv"))
 #-----------------------------------------------
 # Data merge and cleaning
 #-----------------------------------------------
-# Merge main and record data sets
 record_data <- record_data %>%
   mutate(Sex = ifelse(Gender == "F", 0, 1)) %>%
   mutate(Race_code = case_when(Race == "B"~0,
@@ -39,14 +40,24 @@ merged_main <- main_data %>%
                    "Year" = "Year",
                    "Sex..0.F..1.M." = "Sex")) %>%
   dplyr::rename(Race_code = Race..0.Boston..1.Chicago..2.NYC..3.TC..4.D.,
-         Sex = Sex..0.F..1.M.,
-         Age = Age..yr.) %>%
+                Sex = Sex..0.F..1.M.,
+                Age = Age..yr.,
+                SR = SR.W.m2) %>%
   mutate(Gender = factor(ifelse(Sex == 0, "Female", "Male"))) %>%
   mutate(Marathon = case_when(Race_code == 0 ~ "Boston",
                               Race_code == 1~ "NYC",
                               Race_code == 2 ~ "Chicago",
                               Race_code == 3 ~ "Twin Cities",
-                              Race_code == 4 ~ "Grandmas")) 
+                              Race_code == 4 ~ "Grandmas")) %>%
+  mutate(Flag = factor(Flag, 
+                       levels = c("White", "Green", "Yellow", "Red", "Black")))  %>%
+  mutate(FinishTime = as.numeric(as.difftime(CR, units = "mins") * (1+X.CR/100))) %>%
+  mutate(Age_Group = cut(Age, breaks = c(0, 14, 19, 29, 39, 49, 59, 69, 79, 92),
+                         labels = c("<= 14", "15-19", "20-29", "30-39", 
+                                    "40-49", "50-59", "60-69", "70-79", ">= 80"), 
+                         right = TRUE))
+
+
 
 #Clean up AQI by box
 aqi_box_data = aqi_box_data %>% 
@@ -61,18 +72,32 @@ aqi_box_pivot = aqi_box_mean[,c("marathon", "date_local", "parameter_duration", 
   pivot_wider(names_from = parameter_duration, values_from = daily_mean)
 # ! AQS data by bounding box will not be included in main analysis due to high missingness
 
+
 #Clean up AQI by CBSA
 aqi_data = aqi_data %>% 
   distinct()
 
-aqi_mean = aqi_data %>%
+AP_mean = aqi_data %>%
   group_by(marathon, date_local, parameter, sample_duration) %>%
   summarise(daily_mean = mean(arithmetic_mean, na.rm = TRUE)) %>%
-  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) 
+  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) %>%
+  filter(parameter_duration %in% c("Sulfur dioxide-1 HOUR", "Ozone-1 HOUR",
+                                   "Nitrogen dioxide (NO2)-1 HOUR", 
+                                   "PM2.5 - Local Conditions-1 HOUR"))
 
-aqi_pivot = aqi_mean[,c("marathon", "date_local", "parameter_duration", "daily_mean")] %>%
-  pivot_wider(names_from = parameter_duration, values_from = daily_mean)
+AP_pivot = AP_mean[,c("marathon", "date_local", "parameter_duration", "daily_mean")] %>%
+  pivot_wider(names_from = parameter_duration, values_from = daily_mean) %>%
+  mutate(Year = year(date_local)) %>%
+  rename("SO2" = "Sulfur dioxide-1 HOUR",
+         "NO2" = "Nitrogen dioxide (NO2)-1 HOUR",
+         "PM2.5" = "PM2.5 - Local Conditions-1 HOUR",
+         "Ozone" = "Ozone-1 HOUR")
 
+
+merged_main = merged_main %>% 
+  left_join(AP_pivot, 
+            by = c("Marathon" = "marathon",
+                   "Year" = "Year")) 
 
 #-----------------------------------------------
 # Exploratory plotting
@@ -80,13 +105,13 @@ aqi_pivot = aqi_mean[,c("marathon", "date_local", "parameter_duration", "daily_m
 
 # Participant summary
 merged_main %>%
-  mutate(Race = case_when(Race_code == 0 ~ "Boston",
+  mutate(Marathon = case_when(Race_code == 0 ~ "Boston",
                           Race_code == 1~ "NYC",
                           Race_code == 2 ~ "Chicago",
                           Race_code == 3 ~ "Twin Cities",
                           Race_code == 4 ~ "Grandmas")) %>%
   dplyr::select(
-    Race,
+    Marathon,
     Gender, 
     Age
   ) %>%
@@ -95,7 +120,7 @@ merged_main %>%
       all_continuous() ~ "{mean} ({sd})",
       all_categorical() ~ "{n} ({p}%)"
     ),
-    by = Race,
+    by = Marathon,
     digits = all_continuous() ~ 2,
     missing = "no",
     type = list(
@@ -156,7 +181,8 @@ merged_main  %>%
       # mat_chorio = "Maternal Chorioamnionitis"
     )
   ) %>%
-  modify_caption(caption = "Summary of weather and pollution parameters across five marathons, N = {N}") %>%
+  modify_caption(caption = 
+                   "Summary of weather and pollution parameters across five marathons, N = {N}") %>%
   as_kable_extra(
     booktabs = TRUE,
     longtable = TRUE,
@@ -172,16 +198,16 @@ merged_main  %>%
 
 # Plot the data with smoothing 
 (best_time_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
-   geom_smooth(#method = "loess", 
+   geom_smooth(method = "loess", 
                se = TRUE, 
-               size = 0.5) +   # Loess smoothing with 95% CI
+               size = 0.5) +  
   labs(
-    title = "Men vs Women",
+    title = "Impact of Gender",
     x = "Age (yrs)",
     y = "Best Time (%CR)"
   ) +
   scale_y_continuous(limits = c(0, 300)) +  
-   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
   theme_minimal() + 
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
@@ -191,9 +217,28 @@ merged_main  %>%
     legend.position = "right" 
   ))
 
+(best_time_WBGT_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Flag)) +
+    geom_smooth(method = "loess", 
+                se = TRUE, 
+                size = 0.5) +  
+    labs(
+      title = "Impact of WBGT Flag",
+      x = "Age (yrs)",
+      y = "Best Time (%CR)"
+    ) +
+    scale_y_continuous(limits = c(0, 300)) +  
+    #scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+    theme_minimal() + 
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      legend.title = element_blank(), 
+      legend.position = "right" 
+    ))
+
 # Plot performance vs age by 10-yr age category
-age_performance_summary <- merged_main %>%
-  mutate(Age_Group = cut(Age, breaks = seq(14, 100, by = 10), right = FALSE)) %>%
+age_performance_summary <- merged_main  %>%
   group_by(Age_Group, Gender) %>%
   summarise(
     mean_XCR = mean(X.CR, na.rm = TRUE),
@@ -223,3 +268,154 @@ best_time_gender_age <- ggplot(age_performance_summary, aes(x = Age_Group, y = m
   )
 
 print(best_time_gender_age)
+
+
+# List of pollutant variables and their labels
+pollutants <- c("Ozone", "NO2", "SO2", "PM2.5")
+titles <- c("Ozone", "NO2", "SO2", "PM2.5")
+units <- c(" (ppm)", " (ppb)", " (ppb)", "(μg/m^3)")
+
+# Create a list of ggplot objects
+plots <- lapply(seq_along(pollutants), function(i) {
+  ggplot(merged_main, aes_string(x = pollutants[i], y = "X.CR")) +
+    geom_smooth(method = "loess", se = TRUE, size = 0.5, color = "steelblue") +
+    labs(title = titles[i], x = paste0(pollutants[i], " ",units[i]), y = "Best Time (%CR)") +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+      axis.title.x = element_text(size = 8),
+      axis.title.y = element_text(size = 8)
+    )
+})
+
+# Combine the four plots into a single row
+combined_plot <- wrap_plots(plots, ncol = 4)
+combined_plot
+
+
+ggplot(merged_main, aes(x = Age, y = FinishTime, color = Flag, linetype = Gender)) +
+  geom_line(stat = "smooth", method = "loess", se = FALSE) +
+  labs(title = "Interaction of WBGT, Gender, and Age on Marathon Performance",
+       x = "WBGT", y = "Finish Time (minutes)") +
+  theme_minimal()
+
+
+ggplot(merged_main, aes(x = NO2, y = X.CR, color = Gender)) +
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess", se = TRUE, size = 1, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  labs(title = "Impact of NO2 on Marathon Performance by Gender and Age",
+       x = "NO2 (ppm)", y = "Percent off current course record") +
+  theme_minimal() + 
+  theme(
+    legend.position = "none"
+  )
+
+
+dist_plot <- ggplot(merged_main %>% filter(!is.na(Flag)), aes(x = X.CR, fill = Gender)) +
+  geom_histogram(position = "identity", binwidth = 10, alpha = 0.6, color = NA) +
+  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +  # Colors for Gender
+  facet_wrap(~Flag, scales = "free", nrow = 1) + 
+  theme_minimal() + 
+  labs(
+    title = "Finish Time Distribution by Gender and Flag",
+    x = "Percent off current course record",
+    y = "Count"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),   # Facet titles bold
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centered title
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_blank(),  # Remove legend title
+    legend.position = "right"
+  )
+
+
+dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = log(FinishTime), fill = Gender)) +
+  geom_histogram(position = "identity",binwidth = 20,  alpha = 0.6, color = NA) +
+  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +  # Colors for Gender
+  facet_wrap(~Age_Group, scales = "free", nrow = 2) + 
+  theme_minimal() + 
+  labs(
+    title = "Finish Time Distribution by Gender and Age Group",
+    x = "Percent off current course record",
+    y = "Count"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),   # Facet titles bold
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centered title
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_blank(),  # Remove legend title
+    legend.position = "right"
+  )
+
+dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = FinishTime, fill = Gender)) +
+  geom_histogram(position = "identity",binwidth = 20,  alpha = 0.6, color = NA) +
+  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +  # Colors for Gender
+  facet_wrap(~Age_Group, scales = "free_y", nrow = 2) + 
+  theme_minimal() + 
+  labs(
+    title = "Finish Time Distribution by Gender and Age Group",
+    x = "Percent off current course record",
+    y = "Count"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),   # Facet titles bold
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centered title
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_blank(),  
+    legend.position = "right"
+  )
+
+# Display the plot
+print(dist_plot)
+
+
+
+#-----------------------------------------------
+# Correlation and regression
+#-----------------------------------------------
+
+all_environ_factors = c("Ozone", "PM2.5", "SO2", "NO2", "WBGT", "Wind", "DP", 
+                        "Td..C", "Tw..C", "X.rh", "Tg..C", "SR.W.m2")
+environ_data <- merged_main[, all_environ_factors]
+
+cor_matrix <- cor(environ_data, use = "complete.obs", method = "pearson")
+corrplot::corrplot(cor_matrix, method = "color", type = "upper", 
+                   tl.col = "black", tl.srt = 45)
+
+
+
+lm.fit = lm(FinishTime ~ Gender + Age+ I(Age^2) + 
+              Wind+ Flag +
+              #`Td..C`+ `Tw..C` + `Tg..C` + 
+              Ozone + PM2.5 + SO2 + NO2,
+            data = merged_main)
+summary(lm.fit)
+lm.fit %>% tbl_regression()
+stargazer(lm.fit)
+
+lm.fit = lm(X.CR ~ Gender + Age+ I(Age^2) + 
+              Wind+ Flag +
+              #`Td..C`+ `Tw..C` + `Tg..C` + 
+              Ozone + PM2.5 + SO2 + NO2,
+            data = merged_main)
+summary(lm.fit)
+lm.fit %>% tbl_regression()
+
+
+# Lasso
+merged_main_clean <- merged_main %>%
+  drop_na(Gender, Age, Ozone, `PM2.5`, SO2, NO2, FinishTime)
+
+lasso.fit = glmnet(x = merged_main_clean[, c("Gender", "Age", "Ozone", "PM2.5", "SO2", "NO2")],
+            y = merged_main_clean$FinishTime, 
+            family = "gaussian",
+            standardize = TRUE,
+            alpha = 1)
+lasso.fit
+

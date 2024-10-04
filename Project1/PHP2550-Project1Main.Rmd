@@ -1,15 +1,16 @@
 ---
-title: "IMPACT OF WEATHER ON MARATHON PERFORMANCE ACROSS AGE AND GENDER"
+title: "IMPACT OF ENVIRONMENTAL FACTORS ON MARATHON PERFORMANCE ACROSS AGE AND GENDER"
 subtitle: "PHP2550 Project 1: An exploratory data analysis"
 author: "Yanwei (Iris) Tong"
 date: "2024-09-29"
 output: 
   pdf_document:
     latex_engine: xelatex
+    keep_tex: true
 link-citations: yes
 header-includes:
    - "\\usepackage{xcolor}"
-abstract: 
+abstract: This exploratory study
 bibliography: 0-references.bib
 ---
 
@@ -19,7 +20,6 @@ knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE, 
                       warning = FALSE, 
                       error = FALSE)
-#knitr::opts_chunk$set(out.width = "300px")
 # knitr::write_bib(x = c("rmarkdown", "knitr"), file = "0-references.bib")
 
 # Load necessary packages
@@ -29,6 +29,11 @@ library(knitr)
 library(ggplot2)
 library(naniar)
 library(gtsummary)
+library(gt)
+library(patchwork)
+library(stargazer)
+library(knitcitations)
+library(mosaic)
 
 # Define data path
 data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
@@ -56,37 +61,53 @@ merged_main <- main_data %>%
                    "Sex..0.F..1.M." = "Sex")) %>%
   dplyr::rename(Race_code = Race..0.Boston..1.Chicago..2.NYC..3.TC..4.D.,
          Sex = Sex..0.F..1.M.,
-         Age = Age..yr.) %>%
+         Age = Age..yr.,
+         SR = SR.W.m2) %>%
   mutate(Gender = factor(ifelse(Sex == 0, "Female", "Male"))) %>%
   mutate(Marathon = case_when(Race_code == 0 ~ "Boston",
                           Race_code == 1~ "NYC",
                           Race_code == 2 ~ "Chicago",
                           Race_code == 3 ~ "Twin Cities",
-                          Race_code == 4 ~ "Grandmas")) 
+                          Race_code == 4 ~ "Grandmas")) %>%
+  mutate(Flag = factor(Flag, 
+                       levels = c("White", "Green", "Yellow", "Red", "Black")))  %>%
+  mutate(FinishTime = as.numeric(as.difftime(CR, units = "mins") * (1+X.CR/100))) %>%
+  mutate(Age_Group = cut(Age, breaks = c(0, 14, 19, 29, 39, 49, 59, 69, 79, 92),
+                         labels = c("<= 14", "15-19", "20-29", "30-39", 
+                                    "40-49", "50-59", "60-69", "70-79", ">= 80"), 
+                         right = TRUE))
 
 
 #Clean up AQI by CBSA
 aqi_data = aqi_data %>% 
   distinct()
 
-aqi_mean = aqi_data %>%
+AP_mean = aqi_data %>%
   group_by(marathon, date_local, parameter, sample_duration) %>%
   summarise(daily_mean = mean(arithmetic_mean, na.rm = TRUE)) %>%
-  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) 
+  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) %>%
+  filter(parameter_duration %in% c("Sulfur dioxide-1 HOUR", "Ozone-1 HOUR",
+                                   "Nitrogen dioxide (NO2)-1 HOUR", 
+                                   "PM2.5 - Local Conditions-1 HOUR"))
 
-aqi_pivot = aqi_mean[,c("marathon", "date_local", "parameter_duration", "daily_mean")] %>%
+AP_pivot = AP_mean[,c("marathon", "date_local", "parameter_duration", "daily_mean")] %>%
   pivot_wider(names_from = parameter_duration, values_from = daily_mean) %>%
-  mutate(Year = year(date_local))
+  mutate(Year = year(date_local)) %>%
+  rename("SO2" = "Sulfur dioxide-1 HOUR",
+         "NO2" = "Nitrogen dioxide (NO2)-1 HOUR",
+         "PM2.5" = "PM2.5 - Local Conditions-1 HOUR",
+         "Ozone" = "Ozone-1 HOUR")
+
 
 merged_main = merged_main %>% 
-  left_join(aqi_pivot, 
+  left_join(AP_pivot, 
             by = c("Marathon" = "marathon",
-                   "Year" = "Year"))
+                   "Year" = "Year")) 
 ```
 
 
 ## \textcolor{orange}{INTRODUCTION}
-Here, we would like to identify and explore the impacts of the following factors on marathon performance across genders: 1) the increase in age, 2) environmental conditions and whether the impact differs across age and gender, and 3) 
+The relationship between environmental factors and marathon performance has been the subject of extensive research. @ely2007impact has shown that increasing Wet Bulb Globe Temperature (WBGT) negatively affects overall speed. Interestingly, the impact of weather appears less pronounced for female runners, as Vihma (2010) noted, suggesting potential physiological or pacing differences. Deanor et al. (2015) further emphasized that men are more likely than women to slow over the course of a marathon, possibly due to pacing strategies or differences in heat tolerance. Age also plays a critical role, with older runners exhibiting less variance in marathon pace compared to younger participants, indicating a steadier pacing strategy (Nikolaidis, 2019). However, environmental stressors like higher temperatures and humidity affect both older male and female runners, as shown in the New York City Marathon, where they experienced significant performance declines (Knechtle et al., 2021). Beyond heat, air temperature and pollution also factor into performance outcomes. @el2012impact demonstrated that the relationship between air temperature and marathon performance follows a quadratic trend, with optimal running temperatures varying by performance level. As temperatures exceed these optimal ranges, performance declines and withdrawal rates increase, with Ozone (O$_3$) levels potentially compounding these effects. Together, these studies underscore the complex interplay of environmental conditions, age, and gender on marathon performance, highlighting the need for a comprehensive examination of how these factors influence endurance running across diverse populations. Therefore, in this project, we would like to identify and explore the impacts of the following factors on marathon performance across genders: 1) the increase in age, 2) environmental conditions and whether the impact differs across age and gender, and 3) 
 
 ## \textcolor{orange}{METHODS}
 ### Data Overview
@@ -130,46 +151,102 @@ merged_main  %>%
   dplyr::select(
     Marathon,
     WBGT,
-    DP,
-    `Nitrogen dioxide (NO2)-1 HOUR`,
-    `Sulfur dioxide-1 HOUR`,
-    `Ozone-1 HOUR`,
-    `PM2.5 - Local Conditions-1 HOUR`
+    Flag,
+    Wind,
+    X.rh,
+    SR,
+    NO2,
+    SO2,
+    Ozone,
+    PM2.5
   ) %>%
   distinct() %>%
   tbl_summary(
-    statistic = all_continuous() ~ c("{mean} ({sd})", "{min}, {max}"),
+    statistic = list(all_continuous() ~ c("{mean} ({sd})", "{min}, {max}"),
+                     all_categorical() ~ "{n} ({p}%)"),
     by = Marathon,
     digits = all_continuous() ~ 2,
     missing = "no",
     type = list(
       WBGT ~ "continuous2",
-      DP ~"continuous2",
-      `Sulfur dioxide-1 HOUR`  ~"continuous2",
-      `Nitrogen dioxide (NO2)-1 HOUR` ~"continuous2",
-      `Ozone-1 HOUR` ~"continuous2",
-      `PM2.5 - Local Conditions-1 HOUR` ~"continuous2"
+      Flag ~ "categorical",
+      `X.rh` ~ "continuous2",
+      `SR` ~ "continuous2",
+      Wind ~"continuous2",
+      SO2  ~"continuous2",
+      NO2 ~"continuous2",
+      Ozone ~"continuous2",
+      PM2.5 ~"continuous2"
     ),
     label = list(
-      DP = "DP (°C)",
-      `Nitrogen dioxide (NO2)-1 HOUR` = "NO$_2$ (parts per billion)",
-      `Sulfur dioxide-1 HOUR` = "SO$_2$ (parts per billion)",
-      `Ozone-1 HOUR` = "O$_3$, (parts per million)",
-      `PM2.5 - Local Conditions-1 HOUR` = "PM$_{2.5}, (μg/m$^3$)$"
+      WBGT = "WBGT (°C)",
+      Flag = "WBGT flag",
+      X.rh = "Percent relative humidity",
+      Wind = "Wind speed (Km/hr)",
+      SR = "Solar radiation (W/m^2)",
+      NO2 = "NO2 (ppb)",
+      SO2 = "SO2 (ppb)",
+      Ozone = "O3 (ppm)",
+      PM2.5 = "PM2.5 (microgram/m^3)"
     )
   ) %>%
-  modify_caption(caption = "Summary of weather and pollution parameters across five marathons, N = {N}") %>%
+   modify_caption(caption = "Summary of Environmental Factors by Marathon, N = {N}") %>%
   as_kable_extra(
     booktabs = TRUE,
     longtable = TRUE,
-    linesep = ""
+    linesep = "",
+    format = "latex"
   ) %>%
   kableExtra::kable_styling(
     position = "center",
     latex_options = c("striped", "repeat_header"),
-    stripe_color = "gray!15"
+    stripe_color = "gray!15",
+    font_size = 8
   )
+```
 
+```{r, fig.height = 4, fig.width = 4}
+all_environ_factors = c("Ozone", "PM2.5", "SO2", "NO2", "WBGT", "Wind", "DP", 
+                        "Td..C", "Tw..C", "X.rh", "Tg..C", "SR")
+environ_data <- merged_main[, all_environ_factors]
+
+custom_labels <- c("Ozone", "PM2.5", "SO2", "NO2", "WBGT", "Wind Speed", "Dew Point", 
+                   "Dry bulb temperature (°C)", "Tw (°C)", 
+                   "%relative humidity", "Tg (°C)", "Solar Radiation")
+
+
+cor_matrix <- cor(environ_data, use = "complete.obs", method = "pearson")
+colnames(cor_matrix) <- custom_labels
+rownames(cor_matrix) <- custom_labels
+
+corrplot::corrplot(cor_matrix, 
+                   type = "lower", 
+                   method = "color", 
+                   tl.cex = 0.8,      
+                   tl.labels = custom_labels,  # Use custom labels
+                   tl.col = "black",   # Text color
+                   col = colorRampPalette(c("darkblue", "beige", "brown"))(200))
+```
+
+```{r, fig.width = 12, fig.height = 8}
+dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = log(FinishTime), fill = Gender)) +
+  geom_histogram(position = "identity",binwidth = 20,  alpha = 0.6, color = NA) +
+  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +  # Colors for Gender
+  facet_wrap(~Age_Group, scales = "free", nrow = 2) + 
+  theme_minimal() + 
+  labs(
+    title = "Finish Time Distribution by Gender and Age Group",
+    x = "Percent off current course record",
+    y = "Count"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),   # Facet titles bold
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centered title
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_blank(),  # Remove legend title
+    legend.position = "right"
+  )
 ```
 
 
@@ -178,13 +255,13 @@ merged_main  %>%
 
 ## \textcolor{orange}{RESULTS}
 
-```{r, fig.width = 4, fig.height = 3}
-best_time_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
+```{r, fig.width = 8, fig.height = 3}
+off_record_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
    geom_smooth(method = "loess", se = TRUE, size = 0.5) +   # Loess smoothing with 95% CI
   labs(
     title = "Men vs Women",
     x = "Age (yrs)",
-    y = "Best Time (%CR)"
+    y = "Percent off current course record "
   ) +
   scale_y_continuous(limits = c(0, 300)) +  
   scale_x_continuous(breaks = seq(10, 100, by = 10)) +
@@ -195,11 +272,142 @@ best_time_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender
     axis.title.x = element_text(size = 8),
     axis.title.y = element_text(size = 8),
     legend.title = element_blank(), 
+    legend.position = "none" 
+  )
+
+finish_time_gender_age = ggplot(merged_main, aes(x = Age, y = FinishTime, color = Gender)) +
+   geom_smooth(method = "loess", se = TRUE, size = 0.5) +   
+  labs(
+    title = "Men vs Women",
+    x = "Age (yrs)",
+    y = "Finish time (minutes)"
+  ) +
+  scale_x_continuous(breaks = seq(10, 100, by = 10)) +
+   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
+    legend.title = element_blank(), 
     legend.position = "right" 
   )
-best_time_gender_age
+
+off_record_gender_age + finish_time_gender_age
 ```
 
+```{r, fig.width = 12, fig.height = 3.5}
+# List of pollutant variables and their labels
+pollutants <- c("Ozone", "NO2", "SO2", "PM2.5")
+titles <- c("Ozone", "NO2", "SO2", "PM2.5")
+units <- c(" (ppm)", " (ppb)", " (ppb)", "(microgram/m^3)")
+
+# Create a list of ggplot objects
+plots <- lapply(seq_along(pollutants), function(i) {
+  ggplot(merged_main, aes_string(x = pollutants[i], y = "X.CR" , color = "Gender")) +
+    geom_smooth(method = "loess", se = TRUE, size = 1) +
+    labs(
+      title = titles[i],
+      x = paste0(pollutants[i], " ", units[i]),
+      # Only show y-axis label on the first plot
+      y = if (i == 1) "Best Time (%CR)" else NULL  
+    ) +
+    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = if (i == 1) 14 else 0),  # Hide y-axis title for other plots
+      axis.text.y = element_text(size = if (i == 1) 12 else 0), # Hide y-axis text for other plots
+      legend.position = if (i == 4) "right" else "none"
+    )
+})
+
+# Combine the four plots into a single row with shared y-axis
+combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+combined_plot
+```
+
+```{r, fig.width = 12, fig.height = 3.5}
+# List of pollutant variables and their labels
+weather <- c("Wind", "WBGT", "SR", "X.rh")
+weather_titles <- c("Wind speed", "Wet Bulb Globe Temperature", 
+            "Solar radiation ", "Percent relative humidity")
+units <- c(" (Km/hr)", " (°C)", " (W/m^2)", "")
+
+# Create a list of ggplot objects
+plots <- lapply(seq_along(weather), function(i) {
+  ggplot(merged_main, aes_string(x = weather[i], y = "X.CR" , color = "Gender")) +
+    geom_smooth(method = "loess", se = TRUE, size = 1) +
+    labs(
+      title = weather_titles[i],
+      x = paste0(weather[i], " ", units[i]),
+      # Only show y-axis label on the first plot
+      y = if (i == 1) "Best Time (%CR)" else NULL  
+    ) +
+    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = if (i == 1) 14 else 0),  # Hide y-axis title for other plots
+      axis.text.y = element_text(size = if (i == 1) 12 else 0), # Hide y-axis text for other plots
+      legend.position = if (i == 4) "right" else "none"
+    )
+})
+
+# Combine the four plots into a single row with shared y-axis
+combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+combined_plot
+```
+
+```{r}
+ggplot(merged_main, aes(x = NO2, y = X.CR, color = Gender)) +
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  labs(title = "Impact of NO2 on Marathon Performance by Gender and Age",
+       x = "NO2 (ppm)", y = "Percent off current course record") +
+  theme_minimal() + 
+  theme(
+    legend.position = "none"
+  )
+
+# ggplot(merged_main, aes(x = PM2.5, y = X.CR, color = Gender)) +
+#   geom_point(size = 0.5, alpha = 0.5) +
+#   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+#   facet_grid(Gender~Age_Group) +
+#   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+#   labs(title = "Impact of PM2.5 on Marathon Performance by Gender and Age",
+#        x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
+#   theme_minimal() + 
+#   theme(
+#     legend.position = "none"
+#   )
+```
+
+
+
+```{r}
+# lm.fit <- lm(X.CR ~ Gender + I(Age^2) + poly(Ozone, 2) + NO2 + SO2 + PM2.5 +
+#                poly(Wind, 2) + poly(WBGT, 2) + poly(SR.W.m2, 2) + poly(X.rh, 2), 
+#              data = merged_main, na.omit = TRUE)
+merged_main = merged_main %>% 
+  mutate(Wind_s = scale(Wind),
+         WBGT_s = scale(WBGT),
+         SR_s = scale(SR),
+         )
+lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
+              Wind+ WBGT + SR+ X.rh+
+              Ozone + PM2.5 + SO2 + NO2,
+            data = merged_main)
+lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
+              Wind_s+ WBGT_s + SR+ X.rh+
+              Ozone + PM2.5 + SO2 + NO2,
+            data = merged_main)
+lm.fit %>% tbl_regression()
+```
 
 
 ## \textcolor{orange}{CONCLUSION}
@@ -209,12 +417,12 @@ best_time_gender_age
 
 
 \pagebreak
-## Data Privacy
+## Data Privacy and Code Availability
 
-## Code availability
+Primary data were provided by and Dr. Matthew Ely from the Department of Health Sciences at Providence College. The original data cannot be shared directly for privacy. Replication scripts are available at https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project1.
 
-## Reference
-
+# Reference
+<div id="refs"></div>
 
 \pagebreak
 ## **Code Appendix**

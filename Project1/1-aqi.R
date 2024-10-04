@@ -13,7 +13,7 @@ library(tidyverse)
 # set credentials
 # TO RUN YOURSELF YOU WILL NEED TO SET YOUR OWN CREDENTIALS 
 # RAQSAPI::aqs_sign_up("yanwei_tong@brown.edu")
-aqs_credentials("yanwei_tong@brown.edu", "copperfrog48")
+RAQSAPI::aqs_credentials("yanwei_tong@brown.edu", "copperfrog48")
 
 # cbsa is core based statistical areas
 cbsa_df <- data.frame(
@@ -99,4 +99,4 @@ bbox_results_df_save <-  bbox_results_df %>% dplyr::select(marathon, date_local,
                                                            minlat, maxlat, minlon, maxlon)
 write.csv(bbox_results_df_save, paste0(data_path, "/aqi_values_latlon_box.csv"), row.names = FALSE)
 
-
+# Note: data by box has a high missingness rate for lack of monitor
