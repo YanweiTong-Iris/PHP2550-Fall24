@@ -390,21 +390,36 @@ corrplot::corrplot(cor_matrix, method = "color", type = "upper",
 
 
 
-lm.fit = lm(FinishTime ~ Gender + Age+ I(Age^2) + 
-              Wind+ Flag +
-              #`Td..C`+ `Tw..C` + `Tg..C` + 
-              Ozone + PM2.5 + SO2 + NO2,
+lm.fit = lm(FinishTime ~ Gender + Age + 
+              Wind+ WBGT + SR + X.rh,
+             #Ozone + PM2.5 + SO2 + NO2,
             data = merged_main)
 summary(lm.fit)
 lm.fit %>% tbl_regression()
 stargazer(lm.fit)
 
-lm.fit = lm(X.CR ~ Gender + Age+ I(Age^2) + 
-              Wind+ Flag +
-              #`Td..C`+ `Tw..C` + `Tg..C` + 
+lm.fit = lm(X.CR ~ Gender + Age + 
               Ozone + PM2.5 + SO2 + NO2,
             data = merged_main)
 summary(lm.fit)
+lm.fit %>% tbl_regression()
+
+
+merged_main = merged_main %>% 
+  mutate(Wind_s = scale(Wind),
+         WBGT_s = scale(WBGT),
+         SR_s = scale(SR),
+         X.rh_s = scale(X.rh),
+         Ozone_s = scale(Ozone),
+         PM2.5_s = scale(PM2.5),
+         SO2_s = scale(SO2),
+         NO2_s = scale(NO2)
+  )
+
+lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
+              Wind_s+ WBGT_s + SR_s+ X.rh_s+
+              Ozone_s + SO2_s + NO2_s,
+            data = merged_main)
 lm.fit %>% tbl_regression()
 
 

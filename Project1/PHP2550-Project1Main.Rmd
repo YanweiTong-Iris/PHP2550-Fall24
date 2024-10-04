@@ -16,12 +16,10 @@ bibliography: 0-references.bib
 
 ```{r setup, include=FALSE}
 # Set up knit environment
-# //??????
 knitr::opts_chunk$set(echo = FALSE, 
                       message = FALSE, 
                       warning = FALSE, 
                       error = FALSE)
-# knitr::write_bib(x = c("rmarkdown", "knitr"), file = "0-references.bib")
 
 # Load necessary packages
 library(tidyverse)
@@ -86,19 +84,26 @@ aqi_data = aqi_data %>%
 AP_mean = aqi_data %>%
   group_by(marathon, date_local, parameter, sample_duration) %>%
   summarise(daily_mean = mean(arithmetic_mean, na.rm = TRUE)) %>%
-  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) %>%
-  filter(parameter_duration %in% c("Sulfur dioxide-1 HOUR", "Ozone-1 HOUR",
-                                   "Nitrogen dioxide (NO2)-1 HOUR", 
-                                   "PM2.5 - Local Conditions-1 HOUR"))
+  mutate(parameter_duration = paste0(parameter, "-", sample_duration)) 
+
 
 AP_pivot = AP_mean[,c("marathon", "date_local", "parameter_duration", "daily_mean")] %>%
   pivot_wider(names_from = parameter_duration, values_from = daily_mean) %>%
   mutate(Year = year(date_local)) %>%
+  mutate(PM2.5 = coalesce(`PM2.5 - Local Conditions-24 HOUR`, 
+                     `PM2.5 - Local Conditions-24-HR BLK AVG`))%>%
+  dplyr::select(
+    "marathon",
+    "date_local",
+    "Year",
+    "Sulfur dioxide-1 HOUR",
+    "Ozone-1 HOUR",
+    "Nitrogen dioxide (NO2)-1 HOUR",
+    "PM2.5"
+  ) %>% 
   rename("SO2" = "Sulfur dioxide-1 HOUR",
          "NO2" = "Nitrogen dioxide (NO2)-1 HOUR",
-         "PM2.5" = "PM2.5 - Local Conditions-1 HOUR",
          "Ozone" = "Ozone-1 HOUR")
-
 
 merged_main = merged_main %>% 
   left_join(AP_pivot, 
@@ -108,7 +113,7 @@ merged_main = merged_main %>%
 
 
 ## \textcolor{orange}{INTRODUCTION}
-The relationship between environmental factors and marathon performance has been the subject of extensive research. @ely2007impact has shown that increasing Wet Bulb Globe Temperature (WBGT) negatively affects overall speed. Interestingly, the impact of weather appears less pronounced for female runners, as Vihma (2010) noted, suggesting potential physiological or pacing differences. Deanor et al. (2015) further emphasized that men are more likely than women to slow over the course of a marathon, possibly due to pacing strategies or differences in heat tolerance. Age also plays a critical role, with older runners exhibiting less variance in marathon pace compared to younger participants, indicating a steadier pacing strategy (Nikolaidis, 2019). However, environmental stressors like higher temperatures and humidity affect both older male and female runners, as shown in the New York City Marathon, where they experienced significant performance declines (Knechtle et al., 2021). Beyond heat, air temperature and pollution also factor into performance outcomes. @el2012impact demonstrated that the relationship between air temperature and marathon performance follows a quadratic trend, with optimal running temperatures varying by performance level. As temperatures exceed these optimal ranges, performance declines and withdrawal rates increase, with Ozone (O$_3$) levels potentially compounding these effects. Together, these studies underscore the complex interplay of environmental conditions, age, and gender on marathon performance, highlighting the need for a comprehensive examination of how these factors influence endurance running across diverse populations. Therefore, in this project, we would like to identify and explore the impacts of the following factors on marathon performance across genders: 1) the increase in age, 2) environmental conditions and whether the impact differs across age and gender, and 3) 
+The relationship between environmental factors and marathon performance has been the subject of extensive research. @ely2007impact has shown that increasing Wet Bulb Globe Temperature (WBGT) negatively affects overall speed. Interestingly, the impact of weather appears less pronounced for female runners, as @vihma2010effects noted, suggesting potential physiological or pacing differences. @deaner2015men further emphasized that men are more likely than women to slow over the course of a marathon, possibly due to pacing strategies or differences in heat tolerance. Age also plays a critical role, with older runners exhibiting less variance in marathon pace compared to younger participants, indicating a steadier pacing strategy (@nikolaidis2019fast). However, environmental stressors like higher temperatures and humidity affect both older male and female runners, as shown in the New York City Marathon, where they experienced significant performance declines (@knechtle2021role). Beyond heat, air temperature and pollution also factor into performance outcomes. @el2012impact demonstrated that the relationship between air temperature and marathon performance follows a quadratic trend, with optimal running temperatures varying by performance level. As temperatures exceed these optimal ranges, performance declines and withdrawal rates increase, with Ozone (O$_3$) levels potentially compounding these effects. Together, these studies underscore the complex interplay of environmental conditions, age, and gender on marathon performance, highlighting the need for a comprehensive examination of how these factors influence endurance running across diverse populations. Therefore, in this project, we would like to identify and explore the impacts of the following factors on marathon performance across genders: 1) the increase in age, 2) environmental conditions and whether the impact differs across age and gender, and 3) 
 
 ## \textcolor{orange}{METHODS}
 ### Data Overview
@@ -142,16 +147,17 @@ merged_main %>%
   kableExtra::kable_styling(
     position = "center",
     latex_options = c("striped", "repeat_header"),
-    stripe_color = "gray!15"
+    stripe_color = "gray!15",
+    font_size = 8
   )
 
 ```
 
-```{r, fig.width = 12, fig.height = 8}
+```{r, fig.width = 12, fig.height = 5}
 dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = X.CR, fill = Gender)) +
   geom_histogram(
     position = "identity",
-    binwidth = 30,
+    binwidth = 10,
     alpha = 0.6,
     color = NA
   ) +
@@ -169,11 +175,10 @@ dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = X.CR, fill = Gend
     axis.title.y = element_text(size = 14),
     legend.title = element_blank(),
     # Remove legend title
-    legend.position = "right"
+    legend.position = "bottom"
   )
 dist_plot
 ```
-
 
 ```{r}
 merged_main  %>%
@@ -234,7 +239,7 @@ merged_main  %>%
   )
 ```
 
-```{r, fig.height = 4, fig.width = 4}
+```{r, fig.height = 4, fig.width = 6}
 all_environ_factors = c("Ozone", "PM2.5", "SO2", "NO2", "WBGT", "Wind", "DP", 
                         "Td..C", "Tw..C", "X.rh", "Tg..C", "SR")
 environ_data <- merged_main[, all_environ_factors]
@@ -251,13 +256,15 @@ rownames(cor_matrix) <- custom_labels
 corrplot::corrplot(cor_matrix, 
                    type = "lower", 
                    method = "color", 
-                   tl.cex = 0.8,      
-                   tl.labels = custom_labels,  # Use custom labels
-                   tl.col = "black",   # Text color
-                   col = colorRampPalette(c("darkblue", "beige", "brown"))(200))
+                   tl.cex = 0.6,      
+                   tl.labels = custom_labels,  
+                   tl.col = "black",   
+                   col = colorRampPalette(c("darkblue", "beige", "brown"))(200),
+                   addCoef.col = "black",  
+                   number.cex = 0.5,
+                   number.font = 1.3
+)
 ```
-
-
 
 
 
@@ -373,49 +380,84 @@ combined_plot
 
 
 
-```{r}
-ggplot(merged_main, aes(x = NO2, y = X.CR, color = Gender)) +
+```{r, fig.height = 3.5, fig.width = 10}
+ggplot(merged_main %>% filter(Age >= 15), aes(x = WBGT, y = X.CR, color = Gender)) +
   geom_point(size = 0.3, alpha = 0.3) +
   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
   facet_grid(Gender~Age_Group) +
   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  scale_y_continuous(limits = c(0, 300)) + 
+  labs(title = "Impact of WBGT on Marathon Performance by Gender and Age",
+       x = "WBGT", y = "Percent off current course record") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+ggplot(merged_main %>% filter(Age >= 15), aes(x = NO2, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
+  scale_y_continuous(limits = c(0, 300)) + 
   labs(title = "Impact of NO2 on Marathon Performance by Gender and Age",
        x = "NO2 (ppm)", y = "Percent off current course record") +
   theme_minimal() + 
   theme(legend.position = "none")
 
-ggplot(merged_main, aes(x = PM2.5, y = X.CR, color = Gender)) +
-  geom_point(size = 0.3, alpha = 0.3) +
-  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
-  facet_grid(Gender~Age_Group) +
-  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
-  labs(title = "Impact of PM2.5 on Marathon Performance by Gender and Age",
-       x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
-  theme_minimal() +
-  theme(legend.position = "none")
+# ggplot(merged_main %>% filter(Age >= 15), aes(x = PM2.5, y = X.CR, color = Gender)) +
+#   geom_point(size = 0.3, alpha = 0.3) +
+#   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+#   facet_grid(Gender~Age_Group) +
+#   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+#   scale_y_continuous(limits = c(0, 300)) + 
+#   labs(title = "Impact of PM2.5 on Marathon Performance by Gender and Age",
+#        x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
+#   theme_minimal() +
+#   theme(legend.position = "none")
 ```
 
 
-
-```{r}
-# lm.fit <- lm(X.CR ~ Gender + I(Age^2) + poly(Ozone, 2) + NO2 + SO2 + PM2.5 +
-#                poly(Wind, 2) + poly(WBGT, 2) + poly(SR.W.m2, 2) + poly(X.rh, 2), 
-#              data = merged_main, na.omit = TRUE)
+```{r, fig.height = 4, fig.width = 12}
 merged_main = merged_main %>% 
   mutate(Wind_s = scale(Wind),
          WBGT_s = scale(WBGT),
          SR_s = scale(SR),
+         X.rh_s = scale(X.rh),
+         Ozone_s = scale(Ozone),
+         PM2.5_s = scale(PM2.5),
+         SO2_s = scale(SO2),
+         NO2_s = scale(NO2)
          )
-# lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
-#               Wind+ WBGT + SR+ X.rh+
-#               Ozone + PM2.5 + SO2 + NO2,
-#             data = merged_main)
-lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
-              Wind_s+ WBGT_s + SR+ X.rh+
-              Ozone + PM2.5 + SO2 + NO2,
+
+lm.fit.weather = lm(log(FinishTime*60) ~ Gender + Age +
+              Wind_s+ WBGT_s + SR_s+ X.rh_s,
             data = merged_main)
-lm.fit %>% tbl_regression()
+lm.fit.weather %>% tbl_regression()
+
+lm.fit.AP = lm(log(FinishTime*60) ~ Gender + Age +
+              Ozone_s + SO2_s + NO2_s + PM2.5_s,
+            data = merged_main)
+lm.fit.AP %>% tbl_regression()
 ```
+
+```{r}
+CR_merged = merged_main  %>%
+  dplyr::select(
+    Marathon,
+    Gender,
+    WBGT,
+    Flag,
+    Wind,
+    X.rh,
+    SR,
+    NO2,
+    SO2,
+    Ozone,
+    PM2.5,
+    CR
+  ) %>%
+  distinct() 
+```
+
 
 
 ## \textcolor{orange}{CONCLUSION}
