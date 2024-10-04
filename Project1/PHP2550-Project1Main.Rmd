@@ -146,6 +146,34 @@ merged_main %>%
 
 ```
 
+```{r, fig.width = 12, fig.height = 8}
+dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = X.CR, fill = Gender)) +
+  geom_histogram(
+    position = "identity",
+    binwidth = 30,
+    alpha = 0.6,
+    color = NA
+  ) +
+  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +
+  facet_wrap( ~ Age_Group, scales = "free_y", nrow = 2) +
+  theme_minimal() +
+  labs(title = "Marathon Performance Distribution by Gender and Age Group", 
+       x = "Percent off current course record", y = "Count") +
+  theme(
+    strip.text = element_text(face = "bold"),
+    # Facet titles bold
+    plot.title = element_text(hjust = 0.5, size = 16),
+    # Centered title
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_blank(),
+    # Remove legend title
+    legend.position = "right"
+  )
+dist_plot
+```
+
+
 ```{r}
 merged_main  %>%
   dplyr::select(
@@ -170,8 +198,8 @@ merged_main  %>%
     type = list(
       WBGT ~ "continuous2",
       Flag ~ "categorical",
-      `X.rh` ~ "continuous2",
-      `SR` ~ "continuous2",
+      X.rh ~ "continuous2",
+      SR ~ "continuous2",
       Wind ~"continuous2",
       SO2  ~"continuous2",
       NO2 ~"continuous2",
@@ -228,26 +256,7 @@ corrplot::corrplot(cor_matrix,
                    col = colorRampPalette(c("darkblue", "beige", "brown"))(200))
 ```
 
-```{r, fig.width = 12, fig.height = 8}
-dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = log(FinishTime), fill = Gender)) +
-  geom_histogram(position = "identity",binwidth = 20,  alpha = 0.6, color = NA) +
-  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +  # Colors for Gender
-  facet_wrap(~Age_Group, scales = "free", nrow = 2) + 
-  theme_minimal() + 
-  labs(
-    title = "Finish Time Distribution by Gender and Age Group",
-    x = "Percent off current course record",
-    y = "Count"
-  ) +
-  theme(
-    strip.text = element_text(face = "bold"),   # Facet titles bold
-    plot.title = element_text(hjust = 0.5, size = 16),  # Centered title
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14),
-    legend.title = element_blank(),  # Remove legend title
-    legend.position = "right"
-  )
-```
+
 
 
 
@@ -259,7 +268,7 @@ dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = log(FinishTime), 
 off_record_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
    geom_smooth(method = "loess", se = TRUE, size = 0.5) +   # Loess smoothing with 95% CI
   labs(
-    title = "Men vs Women",
+    title = "Percent off Current Course Record vs. Age",
     x = "Age (yrs)",
     y = "Percent off current course record "
   ) +
@@ -278,7 +287,7 @@ off_record_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gende
 finish_time_gender_age = ggplot(merged_main, aes(x = Age, y = FinishTime, color = Gender)) +
    geom_smooth(method = "loess", se = TRUE, size = 0.5) +   
   labs(
-    title = "Men vs Women",
+    title = "Finish Time vs. Age",
     x = "Age (yrs)",
     y = "Finish time (minutes)"
   ) +
@@ -294,38 +303,6 @@ finish_time_gender_age = ggplot(merged_main, aes(x = Age, y = FinishTime, color 
   )
 
 off_record_gender_age + finish_time_gender_age
-```
-
-```{r, fig.width = 12, fig.height = 3.5}
-# List of pollutant variables and their labels
-pollutants <- c("Ozone", "NO2", "SO2", "PM2.5")
-titles <- c("Ozone", "NO2", "SO2", "PM2.5")
-units <- c(" (ppm)", " (ppb)", " (ppb)", "(microgram/m^3)")
-
-# Create a list of ggplot objects
-plots <- lapply(seq_along(pollutants), function(i) {
-  ggplot(merged_main, aes_string(x = pollutants[i], y = "X.CR" , color = "Gender")) +
-    geom_smooth(method = "loess", se = TRUE, size = 1) +
-    labs(
-      title = titles[i],
-      x = paste0(pollutants[i], " ", units[i]),
-      # Only show y-axis label on the first plot
-      y = if (i == 1) "Best Time (%CR)" else NULL  
-    ) +
-    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = if (i == 1) 14 else 0),  # Hide y-axis title for other plots
-      axis.text.y = element_text(size = if (i == 1) 12 else 0), # Hide y-axis text for other plots
-      legend.position = if (i == 4) "right" else "none"
-    )
-})
-
-# Combine the four plots into a single row with shared y-axis
-combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
-combined_plot
 ```
 
 ```{r, fig.width = 12, fig.height = 3.5}
@@ -361,30 +338,60 @@ combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0
 combined_plot
 ```
 
+```{r, fig.width = 12, fig.height = 3.5}
+# List of pollutant variables and their labels
+pollutants <- c("Ozone", "NO2", "SO2", "PM2.5")
+titles <- c("Ozone", "NO2", "SO2", "PM2.5")
+units <- c(" (ppm)", " (ppb)", " (ppb)", "(microgram/m^3)")
+
+# Create a list of ggplot objects
+plots <- lapply(seq_along(pollutants), function(i) {
+  ggplot(merged_main, aes_string(x = pollutants[i], y = "X.CR" , color = "Gender")) +
+    geom_smooth(method = "loess", se = TRUE, size = 1) +
+    labs(
+      title = titles[i],
+      x = paste0(pollutants[i], " ", units[i]),
+      # Only show y-axis label on the first plot
+      y = if (i == 1) "Best Time (%CR)" else NULL  
+    ) +
+    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = if (i == 1) 14 else 0),  # Hide y-axis title for other plots
+      axis.text.y = element_text(size = if (i == 1) 12 else 0), # Hide y-axis text for other plots
+      legend.position = if (i == 4) "right" else "none"
+    )
+})
+
+# Combine the four plots into a single row with shared y-axis
+combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+combined_plot
+```
+
+
+
 ```{r}
 ggplot(merged_main, aes(x = NO2, y = X.CR, color = Gender)) +
-  geom_point(size = 0.5, alpha = 0.5) +
+  geom_point(size = 0.3, alpha = 0.3) +
   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
   facet_grid(Gender~Age_Group) +
   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
   labs(title = "Impact of NO2 on Marathon Performance by Gender and Age",
        x = "NO2 (ppm)", y = "Percent off current course record") +
   theme_minimal() + 
-  theme(
-    legend.position = "none"
-  )
+  theme(legend.position = "none")
 
-# ggplot(merged_main, aes(x = PM2.5, y = X.CR, color = Gender)) +
-#   geom_point(size = 0.5, alpha = 0.5) +
-#   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
-#   facet_grid(Gender~Age_Group) +
-#   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
-#   labs(title = "Impact of PM2.5 on Marathon Performance by Gender and Age",
-#        x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
-#   theme_minimal() + 
-#   theme(
-#     legend.position = "none"
-#   )
+ggplot(merged_main, aes(x = PM2.5, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  labs(title = "Impact of PM2.5 on Marathon Performance by Gender and Age",
+       x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
 
@@ -398,10 +405,10 @@ merged_main = merged_main %>%
          WBGT_s = scale(WBGT),
          SR_s = scale(SR),
          )
-lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
-              Wind+ WBGT + SR+ X.rh+
-              Ozone + PM2.5 + SO2 + NO2,
-            data = merged_main)
+# lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
+#               Wind+ WBGT + SR+ X.rh+
+#               Ozone + PM2.5 + SO2 + NO2,
+#             data = merged_main)
 lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
               Wind_s+ WBGT_s + SR+ X.rh+
               Ozone + PM2.5 + SO2 + NO2,
