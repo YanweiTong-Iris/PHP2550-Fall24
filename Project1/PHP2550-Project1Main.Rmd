@@ -405,7 +405,7 @@ off_record_gender_age = ggplot(merged_main,
    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
   theme_minimal() + 
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 8),
     axis.title.x = element_text(size = 8),
     axis.title.y = element_text(size = 8),
     legend.title = element_blank(), 
@@ -426,18 +426,19 @@ race_time_gender_age = ggplot(merged_main, aes(x = Age,
   theme_minimal() + 
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 8),
-    axis.title.x = element_text(size = 6),
-    axis.title.y = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
     legend.title = element_blank(), 
     legend.position = "right" 
   )
 
-combined_plot <- off_record_gender_age + race_time_gender_age +
+combined_plot <- wrap_plots(off_record_gender_age, race_time_gender_age, ncol = 2) +
   plot_annotation(
     title = "Figure 4: Impact of Age on Marathon Performance by Gender",
-    theme = theme(plot.title = element_text(hjust = 0.5, size = 10))  
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 12))  
   ) +
-  plot_layout(ncol = 2, widths = c(1, 1.2))
+  plot_layout(ncol = 2, widths = c(1, 1.2)) & 
+  theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.05), "cm"))
 
 combined_plot
 ```
