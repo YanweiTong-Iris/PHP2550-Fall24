@@ -7,10 +7,24 @@ output:
   pdf_document:
     latex_engine: xelatex
     keep_tex: true
+    # includes:
+    #     in_header: ./fig-valign.tex
 link-citations: yes
 header-includes:
    - "\\usepackage{xcolor}"
-abstract: This exploratory study
+abstract: |
+  \noindent 
+  **Purpose:** The objectives of this exploratory study were to determine the effects of gender, age, and environmental stressors on marathon performance, and to identify the factors with maximal impacts.
+  
+  \noindent 
+  **Methods:**
+  
+  \noindent 
+  **Results:**
+  
+  \noindent 
+  **Conclusion:**
+csl: american-statistical-association.csl
 bibliography: 0-references.bib
 ---
 
@@ -33,6 +47,8 @@ library(patchwork)
 library(stargazer)
 library(knitcitations)
 library(mosaic)
+library(summarytools)
+
 
 # Define data path
 data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
@@ -70,7 +86,7 @@ merged_main <- main_data %>%
                           Race_code == 4 ~ "Grandmas")) %>%
   mutate(Flag = factor(Flag, 
                        levels = c("White", "Green", "Yellow", "Red", "Black")))  %>%
-  mutate(FinishTime = as.numeric(as.difftime(CR, units = "mins") * (1+X.CR/100))) %>%
+  mutate(NetRaceTime = as.numeric(as.difftime(CR, units = "mins") * (1+X.CR/100))) %>%
   mutate(Age_Group = cut(Age, breaks = c(0, 14, 19, 29, 39, 49, 59, 69, 79, 92),
                          labels = c("<= 14", "15-19", "20-29", "30-39", 
                                     "40-49", "50-59", "60-69", "70-79", ">= 80"), 
@@ -108,15 +124,38 @@ AP_pivot = AP_mean[,c("marathon", "date_local", "parameter_duration", "daily_mea
 merged_main = merged_main %>% 
   left_join(AP_pivot, 
             by = c("Marathon" = "marathon",
-                   "Year" = "Year")) 
+                   "Year" = "Year")) %>% 
+  mutate(Wind_s = scale(Wind),
+         WBGT_s = scale(WBGT),
+         SR_s = scale(SR),
+         X.rh_s = scale(X.rh),
+         Ozone_s = scale(Ozone),
+         PM2.5_s = scale(PM2.5),
+         SO2_s = scale(SO2),
+         NO2_s = scale(NO2)
+         )
+
+# For course records and environmental parameters only
+CR_merged = merged_main  %>%
+  dplyr::select(Marathon, CR, Gender, WBGT, Flag, Wind,
+    X.rh, SR, NO2, SO2, Ozone, PM2.5, WBGT_s, Wind_s,
+    X.rh_s, SR_s, NO2_s, SO2_s, Ozone_s, PM2.5_s) %>%
+  distinct() %>%
+  mutate(ChipTime = as.numeric(as.difftime(CR, units = "mins")))
 ```
 
 
 ## \textcolor{orange}{INTRODUCTION}
-The relationship between environmental factors and marathon performance has been the subject of extensive research. @ely2007impact has shown that increasing Wet Bulb Globe Temperature (WBGT) negatively affects overall speed. Interestingly, the impact of weather appears less pronounced for female runners, as @vihma2010effects noted, suggesting potential physiological or pacing differences. @deaner2015men further emphasized that men are more likely than women to slow over the course of a marathon, possibly due to pacing strategies or differences in heat tolerance. Age also plays a critical role, with older runners exhibiting less variance in marathon pace compared to younger participants, indicating a steadier pacing strategy (@nikolaidis2019fast). However, environmental stressors like higher temperatures and humidity affect both older male and female runners, as shown in the New York City Marathon, where they experienced significant performance declines (@knechtle2021role). Beyond heat, air temperature and pollution also factor into performance outcomes. @el2012impact demonstrated that the relationship between air temperature and marathon performance follows a quadratic trend, with optimal running temperatures varying by performance level. As temperatures exceed these optimal ranges, performance declines and withdrawal rates increase, with Ozone (O$_3$) levels potentially compounding these effects. Together, these studies underscore the complex interplay of environmental conditions, age, and gender on marathon performance, highlighting the need for a comprehensive examination of how these factors influence endurance running across diverse populations. Therefore, in this project, we would like to identify and explore the impacts of the following factors on marathon performance across genders: 1) the increase in age, 2) environmental conditions and whether the impact differs across age and gender, and 3) 
+The relationship between environmental factors and marathon performance has been the subject of extensive research. @ely2007impact has shown that increasing Wet Bulb Globe Temperature (WBGT) negatively affects overall speed. Interestingly, the impact of weather appears less pronounced for female runners, as @vihma2010effects noted, suggesting potential physiological differences. @deaner2015men further emphasized that men are more likely than women to slow over the course of a marathon, possibly due to pacing strategies or differences in heat tolerance. Age also plays a critical role, with older runners exhibiting less variance in marathon pace compared to younger participants (@nikolaidis2019fast). However, environmental stressors like higher temperatures and humidity affect both older male and female runners, as shown in the New York City Marathon, where they experienced significant performance declines (@knechtle2021role). Beyond heat, air temperature and pollution also factor into performance outcomes. @el2012impact demonstrated that the relationship between air temperature and marathon performance follows a quadratic trend, with optimal running temperatures varying by performance level. As temperatures exceed these optimal ranges, performance declines and withdrawal rates increase, with Ozone (O$_3$) levels potentially compounding these effects. 
+
+Together, these studies underscore the complex interplay of gender, age, and environmental conditions on marathon performance, highlighting the need for a comprehensive examination of how these factors influence endurance running. Therefore, in this project, by examining data from 5 major marathon races in the U.S., we would like to re-explore the effects and patterns of the following factors on marathon performance: 1) gender 2) the increase in age, and 3) environmental parameters, including weather conditions and air quality, and eventually to identify the parameters with the maximal impacts.
+
 
 ## \textcolor{orange}{METHODS}
 ### Data Overview
+
+Marathon race results were obtained from five major U.S. marathons (Boston, Chicago, New York City, Grandmas, and Twin Cities) spanning the years 1993 to 2016. The total number of collected performances was 11,564 for the 96 races. The gender distribution was nearly even across all , with 47% female and 53% male participants across all events. The average age of runners varied slightly between marathons, ranging from 44 to 50 years, with the Twin Cities marathon hosting a slightly younger average age of participants compared to the others. Statistically significant differences in age were observed amongst races (p < 0.001).
+
 ```{r}
 # Baseline summary
 merged_main %>%
@@ -138,7 +177,7 @@ merged_main %>%
     )
   ) %>%
   add_p() %>%
-  modify_caption(caption = "Participant Characteristics by Marathon, N = {N}") %>%
+  modify_caption(caption = "Participant Characteristics by Marathon Race, N = {N}") %>%
   as_kable_extra(
     booktabs = TRUE,
     longtable = TRUE,
@@ -153,7 +192,9 @@ merged_main %>%
 
 ```
 
-```{r, fig.width = 12, fig.height = 5}
+Performance distributions, as illustrated in **Figure 1**, were right-skewed across all age groups, with most runners finishing closer to the course record, and a long tail of slower times. This skewness is consistent across both genders, though differences in the central tendency of performance between men and women were observed within each age group. Given the non-normal distribution of finish times, log transformations will be necessary to normalize the data in subsequent analyses, ensuring more accurate modeling and interpretation of the factors influencing marathon performance.
+
+```{r, fig.width = 12, fig.height = 6}
 dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = X.CR, fill = Gender)) +
   geom_histogram(
     position = "identity",
@@ -164,21 +205,55 @@ dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = X.CR, fill = Gend
   scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +
   facet_wrap( ~ Age_Group, scales = "free_y", nrow = 2) +
   theme_minimal() +
-  labs(title = "Marathon Performance Distribution by Gender and Age Group", 
+  labs(title = "Figure 1: Marathon Performance Distribution by Gender and Age Group", 
        x = "Percent off current course record", y = "Count") +
   theme(
-    strip.text = element_text(face = "bold"),
-    # Facet titles bold
+    strip.text = element_text(face = "bold", size = 14),  
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
     plot.title = element_text(hjust = 0.5, size = 16),
-    # Centered title
     axis.title.x = element_text(size = 14),
     axis.title.y = element_text(size = 14),
     legend.title = element_blank(),
-    # Remove legend title
     legend.position = "bottom"
   )
 dist_plot
 ```
+
+Relevant weather conditions of the 96 event dates were also provided. These are dry bulb temperature (Td, °C), wet bulb temperature (Tw, °C), percent relative humidity (%rh), black globe temperature (Tg, °C), solar radiation (SR, W/m$^2$), Dew Point (DP, °C), Wind speed (km/hr), and Wet Bulb Globe Temperature (WBGT,°C). WBGT was also categorized to 5 flag levels, quantifying risk of heat illness: White = WBGT <10C, Green = WBGT 10-18 °C, Yellow = WBGT >18-23 °C, Red = WBGT >23-28 °C, and Black = WBGT >28 °C. The air pollution concentrations of sulfur dioxide (parts per million), nitrogen dioxide (parts per million), ozone (parts per billion), and particular matter 2.5 ($\mu$g/m$^3$) were extracted from the EPA Meta Data using the `R` package `RAQSAPI`. SO$_2$, NO$_2$, and O$_3$ were derived from daily averages of 1-hour measurements, whereas PM$_{2.5}$ was based on a 24-hour measurement.
+
+**Figure 2** demonstrates the relationships between various environmental parameters. SO$_2$ and NO$_2$ exhibit a strong positive correlation (0.82), while ozone shows mild negative correlations with both SO$_2$ (-0.24) and NO$_2$ (-0.31). PM$_{2.5}$ correlates positively with SO$_2$ (0.51) and NO$_2$ (0.67), but less with ozone (0.12). These patterns may suggest different underlying pollution sources. Importantly, WBGT, which is a weighted average of dry bulb, wet bulb, and globe temperatures, expectedly shows strong correlations with DP (0.97), Td (0.97), Tw (0.98), and Tg (0.88). This high degree of correlation among temperature-related variables highlights the issue of multicollinearity. As WBGT integrates these components and represents overall thermal stress, further analyses will focus on WBGT as the primary temperature measure, thereby avoiding redundancy and potential co-linearity issues in the statistical models.
+
+```{r, fig.width = 7}
+all_environ_factors = c("SO2", "NO2", "Ozone", "PM2.5", "WBGT", "Wind", "DP", 
+                        "Td..C", "Tw..C", "X.rh", "Tg..C", "SR")
+environ_data <- merged_main[, all_environ_factors]
+
+custom_labels <- c( "SO2 (ppb)", "NO2 (ppb)", 
+                    "Ozone (ppm)", "PM2.5 (microgram/m^3)",
+                    "WBGT (°C)", "Wind Speed (km/hr)", "DP (°C)", 
+                   "Td (°C)", "Tw (°C)", 
+                   "%rh", "Tg (°C)", "SR (W/m^2)")
+
+
+cor_matrix <- cor(environ_data, use = "complete.obs", method = "pearson")
+colnames(cor_matrix) <- custom_labels
+rownames(cor_matrix) <- custom_labels
+
+corrplot::corrplot(cor_matrix, 
+                   type = "lower", 
+                   method = "color", 
+                   tl.cex = 0.6,      
+                   tl.labels = custom_labels,  
+                   tl.col = "black",   
+                   col = colorRampPalette(c("darkblue", "beige", "brown"))(200),
+                   addCoef.col = "black",  
+                   number.cex = 0.5,
+                   number.font = 1.3
+)
+title("Figure 2: Correlation between Environmental Parameters", cex.main = 0.8)
+```
+
 
 ```{r}
 merged_main  %>%
@@ -215,9 +290,9 @@ merged_main  %>%
     label = list(
       WBGT = "WBGT (°C)",
       Flag = "WBGT flag",
-      X.rh = "Percent relative humidity",
+      X.rh = "% relative humidity",
       Wind = "Wind speed (Km/hr)",
-      SR = "Solar radiation (W/m^2)",
+      SR = "SR (W/m^2)",
       NO2 = "NO2 (ppb)",
       SO2 = "SO2 (ppb)",
       Ozone = "O3 (ppm)",
@@ -239,31 +314,66 @@ merged_main  %>%
   )
 ```
 
-```{r, fig.height = 4, fig.width = 6}
-all_environ_factors = c("Ozone", "PM2.5", "SO2", "NO2", "WBGT", "Wind", "DP", 
-                        "Td..C", "Tw..C", "X.rh", "Tg..C", "SR")
-environ_data <- merged_main[, all_environ_factors]
 
-custom_labels <- c("Ozone", "PM2.5", "SO2", "NO2", "WBGT", "Wind Speed", "Dew Point", 
-                   "Dry bulb temperature (°C)", "Tw (°C)", 
-                   "%relative humidity", "Tg (°C)", "Solar Radiation")
+```{r, fig.width = 12, fig.height = 6}
+distinct_environ = CR_merged[, c("WBGT", "X.rh", "Wind","SR", 
+                                 "NO2", "SO2", "Ozone", "PM2.5")] %>%
+  distinct()
 
-
-cor_matrix <- cor(environ_data, use = "complete.obs", method = "pearson")
-colnames(cor_matrix) <- custom_labels
-rownames(cor_matrix) <- custom_labels
-
-corrplot::corrplot(cor_matrix, 
-                   type = "lower", 
-                   method = "color", 
-                   tl.cex = 0.6,      
-                   tl.labels = custom_labels,  
-                   tl.col = "black",   
-                   col = colorRampPalette(c("darkblue", "beige", "brown"))(200),
-                   addCoef.col = "black",  
-                   number.cex = 0.5,
-                   number.font = 1.3
+custom_labels <- list(
+  "X.rh" = "% relative humidity",
+  "Wind" = "Wind Speed",
+  "WBGT" = "WBGT",
+  "SR" = "SR",
+  "NO2" = "NO2",
+  "SO2" = "SO2",
+  "Ozone" = "Ozone",
+  "PM2.5" = "PM2.5"
 )
+
+# Define a function to create a histogram for each environmental factor
+create_histogram <- function(df, var_name) {
+  missing_count <- sum(is.na(df[[var_name]]))
+  total_count <- nrow(df)
+  missing_percent <- (missing_count / total_count) * 100
+  
+  label <- custom_labels[[var_name]] %||% var_name
+  
+  ggplot(df, aes(x = .data[[var_name]])) +
+    geom_histogram(bins = 10, fill = "lightblue", alpha = 0.7) +
+    labs(title = label, x = label, 
+         y = ifelse(var_name %in% c("WBGT", "NO2"), "Count", ""))+
+      annotate(
+        "text",
+        x = Inf,
+        y = Inf,
+        label = paste0(
+          "Missing: ", missing_count, "\n(",
+          round(missing_percent, 2), "%)"
+        ),
+        hjust = 1,
+        vjust = 1.5,
+        size = 4,
+        color = "#CC3333",
+        fontface = "italic"
+      ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = ifelse(var_name %in% c("WBGT", "NO2"), 12, 0)), 
+      axis.text.y = element_text(size = ifelse(var_name %in% c("WBGT", "NO2"), 12, 0)) 
+    ) 
+}
+
+
+environ_factors <- c("WBGT", "X.rh", "Wind", "SR", "NO2", "SO2", "Ozone", "PM2.5")
+
+histograms <- lapply(environ_factors, 
+                     function(var) create_histogram(distinct_environ, var))
+
+combined_plot <- wrap_plots(histograms, ncol = 4,  scales = "free_x")
+print(combined_plot)
 ```
 
 
@@ -292,12 +402,12 @@ off_record_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gende
     legend.position = "none" 
   )
 
-finish_time_gender_age = ggplot(merged_main, aes(x = Age, y = FinishTime, color = Gender)) +
+race_time_gender_age = ggplot(merged_main, aes(x = Age, y = NetRaceTime, color = Gender)) +
    geom_smooth(method = "loess", se = TRUE, size = 0.5) +   
   labs(
-    title = "Finish Time vs. Age",
+    title = "Net Race Time vs. Age",
     x = "Age (yrs)",
-    y = "Finish time (minutes)"
+    y = "Net Race time (minutes)"
   ) +
   scale_x_continuous(breaks = seq(10, 100, by = 10)) +
    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
@@ -310,7 +420,7 @@ finish_time_gender_age = ggplot(merged_main, aes(x = Age, y = FinishTime, color 
     legend.position = "right" 
   )
 
-off_record_gender_age + finish_time_gender_age
+off_record_gender_age + race_time_gender_age
 ```
 
 ```{r, fig.width = 12, fig.height = 3.5}
@@ -417,45 +527,35 @@ ggplot(merged_main %>% filter(Age >= 15), aes(x = NO2, y = X.CR, color = Gender)
 
 
 ```{r, fig.height = 4, fig.width = 12}
-merged_main = merged_main %>% 
-  mutate(Wind_s = scale(Wind),
-         WBGT_s = scale(WBGT),
-         SR_s = scale(SR),
-         X.rh_s = scale(X.rh),
-         Ozone_s = scale(Ozone),
-         PM2.5_s = scale(PM2.5),
-         SO2_s = scale(SO2),
-         NO2_s = scale(NO2)
-         )
+# for (var in c( "Wind_s", "WBGT_s", "SR_s", "X.rh_s",
+#                "Ozone_s", "SO2_s", "NO2_s", "PM2.5_s")){
+#   formula = paste0("log(X.CR) ~ Gender + I(Age^2) +", var)
+#   lm.fit.AP = lm(as.formula(formula), data = merged_main) 
+#   print(summary(lm.fit.AP)$adj.r.squared)
+#   print(lm.fit.AP%>% tbl_regression(show_single_row = "Gender"))
+# }
+# 
+# lm.fit.full = lm(log(X.CR) ~ Gender + Age+ I(Age^2) +
+#               Wind_s+ WBGT_s + SR_s+ X.rh_s+
+#               Ozone_s + SO2_s + NO2_s + PM2.5_s,
+#             data = merged_main)
+# summary(lm.fit.full)
+# lm.fit.full %>% tbl_regression()
 
-lm.fit.weather = lm(log(FinishTime*60) ~ Gender + Age +
-              Wind_s+ WBGT_s + SR_s+ X.rh_s,
-            data = merged_main)
-lm.fit.weather %>% tbl_regression()
-
-lm.fit.AP = lm(log(FinishTime*60) ~ Gender + Age +
-              Ozone_s + SO2_s + NO2_s + PM2.5_s,
-            data = merged_main)
-lm.fit.AP %>% tbl_regression()
 ```
 
+
+
 ```{r}
-CR_merged = merged_main  %>%
-  dplyr::select(
-    Marathon,
-    Gender,
-    WBGT,
-    Flag,
-    Wind,
-    X.rh,
-    SR,
-    NO2,
-    SO2,
-    Ozone,
-    PM2.5,
-    CR
-  ) %>%
-  distinct() 
+lm.CR = lm(ChipTime ~ Gender +Ozone_s + SO2_s + NO2_s + PM2.5_s + 
+             Wind_s + WBGT_s + SR_s + X.rh_s,
+            data = CR_merged)
+r2 = round(summary(lm.CR)$r.squared, 4)
+adj.r2 = round(summary(lm.CR)$adj.r.squared, 4)
+lm.CR %>% tbl_regression() %>% 
+  as_gt() %>%
+  gt::tab_source_note(gt::md(paste0("R-squared = ", r2, 
+                                    ", Adjusted R-squared = ", adj.r2)))
 ```
 
 
@@ -466,7 +566,6 @@ CR_merged = merged_main  %>%
 ## \textcolor{orange}{DISCUSSION}
 
 
-\pagebreak
 ## Data Privacy and Code Availability
 
 Primary data were provided by and Dr. Matthew Ely from the Department of Health Sciences at Providence College. The original data cannot be shared directly for privacy. Replication scripts are available at https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project1.
@@ -475,7 +574,7 @@ Primary data were provided by and Dr. Matthew Ely from the Department of Health 
 <div id="refs"></div>
 
 \pagebreak
-## **Code Appendix**
+# Code Appendix
 ```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
 ```
 

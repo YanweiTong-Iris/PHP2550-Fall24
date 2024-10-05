@@ -97,7 +97,24 @@ AP_pivot = AP_mean[,c("marathon", "date_local", "parameter_duration", "daily_mea
 merged_main = merged_main %>% 
   left_join(AP_pivot, 
             by = c("Marathon" = "marathon",
-                   "Year" = "Year")) 
+                   "Year" = "Year")) %>% 
+  mutate(Wind_s = scale(Wind),
+         WBGT_s = scale(WBGT),
+         SR_s = scale(SR),
+         X.rh_s = scale(X.rh),
+         Ozone_s = scale(Ozone),
+         PM2.5_s = scale(PM2.5),
+         SO2_s = scale(SO2),
+         NO2_s = scale(NO2)
+  )
+
+# For course records and environmental parameters only
+CR_merged = merged_main  %>%
+  dplyr::select(Marathon, CR, Gender, WBGT, Flag, Wind,
+                X.rh, SR, NO2, SO2, Ozone, PM2.5, WBGT_s, Wind_s,
+                X.rh_s, SR_s, NO2_s, SO2_s, Ozone_s, PM2.5_s) %>%
+  distinct() %>%
+  mutate(ChipTime = as.numeric(as.difftime(CR, units = "mins")))
 
 #-----------------------------------------------
 # Exploratory plotting
@@ -194,6 +211,56 @@ merged_main  %>%
     stripe_color = "gray!15"
   )
 
+#dtSummmary()
+distinct_environ = CR_merged[, c("WBGT",
+                                 "Flag",
+                                 "X.rh",
+                                 "Wind",
+                                 "SR",
+                                 "NO2",
+                                 "SO2",
+                                 "Ozone",
+                                 "PM2.5")] %>%
+  distinct()
+
+summary_tmp = dfSummary(
+  distinct_environ,
+  plain.ascii  = FALSE,
+  style        = 'grid',
+  graph.magnif = 0.85,
+  varnumbers = FALSE,
+  valid.col    = FALSE,
+  tmp.img.dir  = "tmp",
+  labels.col=TRUE, 
+  display.labels=TRUE
+)
+
+print(summary_tmp, methods = "render", 
+      Variable.label=TRUE,
+      max.tbl.height = 100,
+      headings=FALSE)
+
+# Course record distribution
+CR_dist_plot <- ggplot(CR_merged, aes(x = ChipTime, fill = Gender, Color = Gender)) +
+  geom_histogram(
+    position = "identity",
+    binwidth = 2,
+    alpha = 0.6
+  ) +
+  scale_fill_manual(values = c("Female" = "lightcoral", "Male" = "lightblue")) +
+  theme_minimal() +
+  labs(title = "Figure 1: Course Record Distribution by Gender", 
+       x = "Net race time of the course record (minute)", y = "Count") +
+  theme(
+    strip.text = element_text(face = "bold", size = 14),  
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5, size = 16),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  )
 
 
 # Plot the data with smoothing 
@@ -418,9 +485,11 @@ merged_main = merged_main %>%
 
 lm.fit = lm(log(X.CR) ~ Gender + I(Age^2) +
               Wind_s+ WBGT_s + SR_s+ X.rh_s+
-              Ozone_s + SO2_s + NO2_s,
+              Ozone_s + SO2_s + NO2_s + PM2.5_s,
             data = merged_main)
+summary(lm.fit)
 lm.fit %>% tbl_regression()
+tidy(lm.fit)
 
 
 # Lasso
