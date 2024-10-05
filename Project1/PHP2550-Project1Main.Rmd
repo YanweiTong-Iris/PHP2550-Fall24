@@ -331,7 +331,7 @@ custom_labels <- list(
   "PM2.5" = "PM2.5"
 )
 
-# Define a function to create a histogram for each environmental factor
+# Define a wrapper function to create a histogram for each environmental factor
 create_histogram <- function(df, var_name) {
   missing_count <- sum(is.na(df[[var_name]]))
   total_count <- nrow(df)
@@ -341,7 +341,7 @@ create_histogram <- function(df, var_name) {
   
   ggplot(df, aes(x = .data[[var_name]])) +
     geom_histogram(bins = 10, fill = "lightblue", alpha = 0.7) +
-    labs(title = label, x = label, 
+    labs(title = label, x = "", 
          y = ifelse(var_name %in% c("WBGT", "NO2"), "Count", ""))+
       annotate(
         "text",
@@ -351,40 +351,50 @@ create_histogram <- function(df, var_name) {
           "Missing: ", missing_count, "\n(",
           round(missing_percent, 2), "%)"
         ),
-        hjust = 1,
-        vjust = 1.5,
-        size = 4,
+        hjust = 1.1,
+        vjust = 1.6,
+        size = 5,
         color = "#CC3333",
         fontface = "italic"
       ) +
     theme_minimal() +
     theme(
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+      plot.title = element_text(hjust = 0.5, size = 14),
       axis.title.x = element_text(size = 12),
       axis.title.y = element_text(size = ifelse(var_name %in% c("WBGT", "NO2"), 12, 0)), 
       axis.text.y = element_text(size = ifelse(var_name %in% c("WBGT", "NO2"), 12, 0)) 
     ) 
 }
 
-
 environ_factors <- c("WBGT", "X.rh", "Wind", "SR", "NO2", "SO2", "Ozone", "PM2.5")
 
 histograms <- lapply(environ_factors, 
                      function(var) create_histogram(distinct_environ, var))
 
-combined_plot <- wrap_plots(histograms, ncol = 4,  scales = "free_x")
+combined_plot <- wrap_plots(histograms, ncol = 4,  scales = "free_x")+
+  plot_annotation(
+    title = "Figure 3: Distribution of Environmental Factors with Missingness",
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 20))  
+  )
+
 print(combined_plot)
+
 ```
 
 
 
 ### Statistical Analysis
 
+
+
+
 ## \textcolor{orange}{RESULTS}
 
-```{r, fig.width = 8, fig.height = 3}
-off_record_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gender)) +
-   geom_smooth(method = "loess", se = TRUE, size = 0.5) +   # Loess smoothing with 95% CI
+```{r, fig.width = 6, fig.height = 3}
+off_record_gender_age = ggplot(merged_main, 
+                               aes(x = Age, y = X.CR, color = Gender)) +
+  # Loess smoothing with 95% CI
+   geom_smooth(method = "loess", se = TRUE, size = 0.5) +   
   labs(
     title = "Percent off Current Course Record vs. Age",
     x = "Age (yrs)",
@@ -402,7 +412,9 @@ off_record_gender_age = ggplot(merged_main, aes(x = Age, y = X.CR, color = Gende
     legend.position = "none" 
   )
 
-race_time_gender_age = ggplot(merged_main, aes(x = Age, y = NetRaceTime, color = Gender)) +
+race_time_gender_age = ggplot(merged_main, aes(x = Age, 
+                                               y = NetRaceTime, 
+                                               color = Gender)) +
    geom_smooth(method = "loess", se = TRUE, size = 0.5) +   
   labs(
     title = "Net Race Time vs. Age",
@@ -413,17 +425,67 @@ race_time_gender_age = ggplot(merged_main, aes(x = Age, y = NetRaceTime, color =
    scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
   theme_minimal() + 
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
-    axis.title.x = element_text(size = 8),
-    axis.title.y = element_text(size = 8),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 8),
+    axis.title.x = element_text(size = 6),
+    axis.title.y = element_text(size = 6),
     legend.title = element_blank(), 
     legend.position = "right" 
   )
 
-off_record_gender_age + race_time_gender_age
+combined_plot <- off_record_gender_age + race_time_gender_age +
+  plot_annotation(
+    title = "Figure 4: Impact of Age on Marathon Performance by Gender",
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 10))  
+  ) +
+  plot_layout(ncol = 2, widths = c(1, 1.2))
+
+combined_plot
 ```
 
-```{r, fig.width = 12, fig.height = 3.5}
+
+```{r}
+cor_table <- data.frame(
+  Environmental_Factor = environ_factors,
+  NetRaceTime_Corr = NA,
+  ChipTime_Corr = NA
+)
+
+
+for (i in seq_along(environ_factors)) {
+  factor <- environ_factors[i]
+  
+  # Correlation for NetRaceTime for all runners
+  cor_table$NetRaceTime_Corr[i] <- cor(merged_main[[factor]], 
+                                       merged_main$NetRaceTime, 
+                                       use = "complete.obs", 
+                                       method = "spearman")
+  
+  # Correlation for ChipTime in records
+  cor_table$ChipTime_Corr[i] <- cor(CR_merged[[factor]], 
+                                    CR_merged$ChipTime, 
+                                    use = "complete.obs", 
+                                    method = "spearman")
+}
+
+colnames(cor_table)[2:3] <- c("Net race time in all runners", "Course record")
+rownames(cor_table) <- c("WBGT", "%rh", "Wind Speed", "Solar Radiation", 
+                         "NO2", "SO2", "Ozone", "PM2.5")
+cor_table[, -1] %>%
+  kable(caption = "Correlation between Environmental Factors and Net Race Times") %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("striped", "repeat_header"),
+    stripe_color = "gray!15",
+    font_size = 9,
+    position = "center"
+  )
+
+```
+
+
+**Figure 5** illustrates the impact of various environmental factors on marathon performance, stratified by gender. Across all environmental factors—including wind speed, WBGT, solar radiation, percent relative humidity, and air pollutants (Ozone, NO2, SO2, and PM2.5)—the effect of gender appears minimal, with male and female runners exhibiting similar patterns. The impact of environmental conditions on performance is notably non-linear, with clear curvatures visible across several variables, particularly WBGT and percent relative humidity. These results suggest complex interactions between environmental factors and performance, but without a significant difference in gender-specific responses.
+
+```{r, fig.width = 12, fig.height = 3}
 # List of pollutant variables and their labels
 weather <- c("Wind", "WBGT", "SR", "X.rh")
 weather_titles <- c("Wind speed", "Wet Bulb Globe Temperature", 
@@ -443,20 +505,29 @@ plots <- lapply(seq_along(weather), function(i) {
     scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
     theme_minimal() +
     theme(
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      plot.title = element_text(hjust = 0.5, size = 14),
       axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = if (i == 1) 14 else 0),  # Hide y-axis title for other plots
-      axis.text.y = element_text(size = if (i == 1) 12 else 0), # Hide y-axis text for other plots
+      # Hide y-axis title and text for non-row-leading plots
+      axis.title.y = element_text(size = if (i == 1) 14 else 0),  
+      axis.text.y = element_text(size = if (i == 1) 12 else 0), 
       legend.position = if (i == 4) "right" else "none"
     )
 })
 
 # Combine the four plots into a single row with shared y-axis
-combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+combined_plot <- wrap_plots(plots, ncol = 4) & 
+  theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm")) 
+
+combined_plot <- combined_plot + 
+  plot_annotation(
+    title = "Figure 5: Impact of Environmental Factors on Marathon Performance by Gender",
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 20))  
+  )
+
 combined_plot
 ```
 
-```{r, fig.width = 12, fig.height = 3.5}
+```{r, fig.width = 12, fig.height = 3}
 # List of pollutant variables and their labels
 pollutants <- c("Ozone", "NO2", "SO2", "PM2.5")
 titles <- c("Ozone", "NO2", "SO2", "PM2.5")
@@ -475,16 +546,18 @@ plots <- lapply(seq_along(pollutants), function(i) {
     scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
     theme_minimal() +
     theme(
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      plot.title = element_text(hjust = 0.5, size = 14),
       axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = if (i == 1) 14 else 0),  # Hide y-axis title for other plots
-      axis.text.y = element_text(size = if (i == 1) 12 else 0), # Hide y-axis text for other plots
+      # Hide y-axis title and text for non-row-leading plots
+      axis.title.y = element_text(size = if (i == 1) 14 else 0),  
+      axis.text.y = element_text(size = if (i == 1) 12 else 0),
       legend.position = if (i == 4) "right" else "none"
     )
 })
 
 # Combine the four plots into a single row with shared y-axis
-combined_plot <- wrap_plots(plots, ncol = 4) & theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+combined_plot <- wrap_plots(plots, ncol = 4) & 
+  theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 combined_plot
 ```
 
