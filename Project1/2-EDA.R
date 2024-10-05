@@ -12,6 +12,12 @@ library(naniar)
 library(gtsummary)
 library(gt)
 library(patchwork)
+library(stargazer)
+library(knitcitations)
+library(mosaic)
+library(summarytools)
+library(npreg)
+library(mgcv)
 
 # Define data path
 data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project1"
@@ -119,6 +125,11 @@ CR_merged = merged_main  %>%
 #-----------------------------------------------
 # Exploratory plotting
 #-----------------------------------------------
+
+# Missingness
+vis_miss(merged_main, sort_miss = TRUE) +
+  labs(title = "Figure 1: Missing Data") +
+  theme(axis.text.x =  element_text(angle = 75))
 
 # Participant summary
 merged_main %>%
@@ -492,14 +503,137 @@ lm.fit %>% tbl_regression()
 tidy(lm.fit)
 
 
-# Lasso
-merged_main_clean <- merged_main %>%
-  drop_na(Gender, Age, Ozone, `PM2.5`, SO2, NO2, FinishTime)
+#Spline
+std_environ_factors = c("Wind_s", "WBGT_s", "SR_s", "X.rh_s",
+                        "Ozone_s", "SO2_s", "NO2_s", "PM2.5_s")
 
-lasso.fit = glmnet(x = merged_main_clean[, c("Gender", "Age", "Ozone", "PM2.5", "SO2", "NO2")],
-            y = merged_main_clean$FinishTime, 
-            family = "gaussian",
-            standardize = TRUE,
-            alpha = 1)
-lasso.fit
+std_x_labels <- list(
+  "X.rh_s" = "% relative humidity",
+  "Wind_s" = "Wind Speed",
+  "WBGT_s" = "WBGT",
+  "SR_s" = "SR",
+  "NO2_s" = "NO2",
+  "SO2_s" = "SO2",
+  "Ozone_s" = "Ozone",
+  "PM2.5_s" = "PM2.5"
+)
 
+# Wrapper funct to fit spline, create plot, and extract adjusted R-squared
+create_spline_plot <- function(df, show_y_axis =TRUE, 
+                               x_var, y_var = "X.CR") {
+  
+  model_data <- df %>%
+    filter(!is.na(.data[[x_var]]) & !is.na(.data[[y_var]]) & 
+             is.finite(.data[[x_var]]) & is.finite(.data[[y_var]]))
+  
+  spline_fit <- ss(model_data[[x_var]], model_data[[y_var]])
+  
+  adj_r2 <- summary(spline_fit)$adj.r.squared
+  
+  x_label <- paste0("Standardized ", std_x_labels[[x_var]] %||% x_var)
+  ylab_text <- if (show_y_axis) "% off course record" else ""
+  
+  mar_setting <- if (show_y_axis) c(5, 4, 4, 2) else c(5, 1.5, 4, 2)
+  par(mar = mar_setting)
+  
+  plot(spline_fit, xlab =" ", ylab = ylab_text, 
+       main = x_label, cex.lab = if (show_y_axis) 1.5 else 0.1, 
+       cex.main = 1.5)
+  
+  # Add annotation for adjusted R²
+  legend(
+    "topright",
+    legend = paste0("Adj R² = ", round(adj_r2, 3)),
+    bty = "n",
+    text.col = "#CC3333",
+    cex = 1.5
+  )
+}
+
+# Create all plots
+par(mfrow = c(2, 4), oma = c(0, 0, 3, 0))
+for (i in seq_along(std_environ_factors)) {
+  show_y_axis <- (i %% 4 == 1)
+  create_spline_plot(merged_main, x_var = std_environ_factors[i], 
+                     y_var = "X.CR",
+                     show_y_axis = show_y_axis)
+}
+mtext("Figure: Spline Fits of Environmental Factors on % off Course Record", 
+      outer = TRUE, cex = 1.5, font = 2)
+
+
+
+# Fit GAM and extract necessary statistics
+# Data frame to store results
+gam_results <- data.frame(
+  Variable = character(),
+  n = numeric(),
+  F_value = numeric(),
+  P_value = numeric(),
+  Adj_R2 = numeric(),
+  Deviance_Explained = numeric(),
+  stringsAsFactors = FALSE
+)
+
+
+get_gam_info <- function(df, x_var, y_var = "X.CR", family = Gamma(link = "log")) {
+  
+  # Filter data for valid values
+  model_data <- df %>%
+    filter(.data[[y_var]] > 0) %>%
+    filter(!is.na(.data[[x_var]]) & !is.na(.data[[y_var]]) & 
+             is.finite(.data[[x_var]]) & is.finite(.data[[y_var]]))
+  
+  gam_fit <- gam(as.formula(paste0(y_var, " ~ s(", x_var, ")")), 
+                 data = model_data, family = family)
+  
+  gam_summary <- summary(gam_fit)
+  n <- gam_summary$n
+  
+  # Extracting approximate F-value and p-value for the smooth term
+  smooth_terms <- gam_summary$s.table
+  
+  F_value <- smooth_terms[1, "F"]
+  p_value <- smooth_terms[1, "p-value"]
+  
+  # Adjusted R-squared and deviance explained
+  adj_r2 <- paste0(round(gam_summary$r.sq, 4) * 100, "%")
+  deviance_explained <- paste0(round(gam_summary$dev.expl, 4)*100, "%") 
+  
+  return(
+    list(
+      n = n,
+      F_value = round(F_value, 4),
+      P_value = round(p_value, 4),
+      Adj_R2 = adj_r2,
+      Deviance_Explained = deviance_explained
+    )
+  )
+}
+
+for (x_var in std_environ_factors) {
+  gam_info <- get_gam_info(merged_main, x_var)
+  
+  gam_results <- rbind(gam_results, data.frame(
+    Variable = std_x_labels[[x_var]] %||% x_var,
+    n = gam_info$n,
+    F_value = gam_info$F_value,
+    Approx_P_value = gam_info$P_value,
+    Adj_R2 = gam_info$Adj_R2, 
+    Deviance_Explained = gam_info$Deviance_Explained
+  ))
+}
+
+colnames(gam_results) <- c("Standardized variable", "n","Approxi. F-value",
+                           "Approxi. p-value", "Adj. R-squared", "%Deviance explained")
+
+gam_results %>%
+  kable(caption = "GAM Results: %off Course Record vs. 
+        Standardized Environmental Factors") %>%
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "repeat_header"),
+                stripe_color = "gray!15",
+                font_size = 9,
+                position = "center")
+
+```
