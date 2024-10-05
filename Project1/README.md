@@ -14,6 +14,8 @@ This exploratory data analysis focused on the following 3 aims:
 
 ### Directory Structure
 
+**`american-statistical-association.csl**: ASA citation style language file.
+
 **`0-references.bib`**: the article bibliography for the main report.
 
 **`1-aqi.R`**: to extract ambient air quality data from the US EPA Air Quality System Data Mart API for all relevant marathon dates and locations.

@@ -48,6 +48,8 @@ library(stargazer)
 library(knitcitations)
 library(mosaic)
 library(summarytools)
+library(npreg)
+library(mgcv)
 
 
 # Define data path
@@ -133,7 +135,9 @@ merged_main = merged_main %>%
          PM2.5_s = scale(PM2.5),
          SO2_s = scale(SO2),
          NO2_s = scale(NO2)
-         )
+         ) %>% 
+  mutate(log_X.CR = log(X.CR),
+         log_NetRaceTime = log(NetRaceTime))
 
 # For course records and environmental parameters only
 CR_merged = merged_main  %>%
@@ -192,7 +196,7 @@ merged_main %>%
 
 ```
 
-Performance distributions, as illustrated in **Figure 1**, were right-skewed across all age groups, with most runners finishing closer to the course record, and a long tail of slower times. This skewness is consistent across both genders, though differences in the central tendency of performance between men and women were observed within each age group. Given the non-normal distribution of finish times, log transformations will be necessary to normalize the data in subsequent analyses, ensuring more accurate modeling and interpretation of the factors influencing marathon performance.
+Performance distributions, as illustrated in **Figure 1**, were right-skewed across all age groups, with most runners finishing closer to the course record, and a long tail of slower times. This skewness is consistent across both genders, though differences in the central tendency of performance between men and women were observed within each age group. Given the non-normal distribution of net race times, log transformations will be necessary to normalize the data in linear-model analyses, ensuring more accurate modeling and interpretation of the factors influencing marathon performance. However, due to high non-linear relationship between the predictors and percent off course records or net race times (shown in RESULTS section), non-parametric models (e.g., LOESS and spline) will be used in subsequent analyses, so we will keep the outcomes on their original scales.
 
 ```{r, fig.width = 12, fig.height = 6}
 dist_plot <- ggplot(merged_main %>% filter(Age >= 15), aes(x = X.CR, fill = Gender)) +
@@ -225,6 +229,7 @@ Relevant weather conditions of the 96 event dates were also provided. These are 
 **Figure 2** demonstrates the relationships between various environmental parameters. SO$_2$ and NO$_2$ exhibit a strong positive correlation (0.82), while ozone shows mild negative correlations with both SO$_2$ (-0.24) and NO$_2$ (-0.31). PM$_{2.5}$ correlates positively with SO$_2$ (0.51) and NO$_2$ (0.67), but less with ozone (0.12). These patterns may suggest different underlying pollution sources. Importantly, WBGT, which is a weighted average of dry bulb, wet bulb, and globe temperatures, expectedly shows strong correlations with DP (0.97), Td (0.97), Tw (0.98), and Tg (0.88). This high degree of correlation among temperature-related variables highlights the issue of multicollinearity. As WBGT integrates these components and represents overall thermal stress, further analyses will focus on WBGT as the primary temperature measure, thereby avoiding redundancy and potential co-linearity issues in the statistical models.
 
 ```{r, fig.width = 7}
+#, out.width= "65%", out.extra='style="float:right; padding:10px"'
 all_environ_factors = c("SO2", "NO2", "Ozone", "PM2.5", "WBGT", "Wind", "DP", 
                         "Td..C", "Tw..C", "X.rh", "Tg..C", "SR")
 environ_data <- merged_main[, all_environ_factors]
@@ -298,7 +303,7 @@ merged_main  %>%
       Ozone = "O3 (ppm)",
       PM2.5 = "PM2.5 (microgram/m^3)"
     )
-  ) %>%
+  ) %>% add_p() %>%
    modify_caption(caption = "Summary of Environmental Factors by Marathon, N = {N}") %>%
   as_kable_extra(
     booktabs = TRUE,
@@ -523,8 +528,8 @@ combined_plot <- wrap_plots(plots, ncol = 4) &
 
 combined_plot <- combined_plot + 
   plot_annotation(
-    title = "Figure 5: Impact of Environmental Factors on Marathon Performance by Gender",
-    theme = theme(plot.title = element_text(hjust = 0.5, size = 20))  
+    title = "Figure 5: Impact of Environmental Factors on Marathon Performance by Gender using LOESS",
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 16))  
   )
 
 combined_plot
@@ -602,25 +607,6 @@ ggplot(merged_main %>% filter(Age >= 15), aes(x = NO2, y = X.CR, color = Gender)
 ```
 
 
-```{r, fig.height = 4, fig.width = 12}
-# for (var in c( "Wind_s", "WBGT_s", "SR_s", "X.rh_s",
-#                "Ozone_s", "SO2_s", "NO2_s", "PM2.5_s")){
-#   formula = paste0("log(X.CR) ~ Gender + I(Age^2) +", var)
-#   lm.fit.AP = lm(as.formula(formula), data = merged_main) 
-#   print(summary(lm.fit.AP)$adj.r.squared)
-#   print(lm.fit.AP%>% tbl_regression(show_single_row = "Gender"))
-# }
-# 
-# lm.fit.full = lm(log(X.CR) ~ Gender + Age+ I(Age^2) +
-#               Wind_s+ WBGT_s + SR_s+ X.rh_s+
-#               Ozone_s + SO2_s + NO2_s + PM2.5_s,
-#             data = merged_main)
-# summary(lm.fit.full)
-# lm.fit.full %>% tbl_regression()
-
-```
-
-
 
 ```{r}
 lm.CR = lm(ChipTime ~ Gender +Ozone_s + SO2_s + NO2_s + PM2.5_s + 
@@ -633,6 +619,63 @@ lm.CR %>% tbl_regression() %>%
   gt::tab_source_note(gt::md(paste0("R-squared = ", r2, 
                                     ", Adjusted R-squared = ", adj.r2)))
 ```
+
+
+```{r, fig.width = 12, fig.height =6}
+std_environ_factors = c("Wind_s", "WBGT_s", "SR_s", "X.rh_s",
+                        "Ozone_s", "SO2_s", "NO2_s", "PM2.5_s")
+
+std_x_labels <- list(
+  "X.rh_s" = "% relative humidity",
+  "Wind_s" = "Wind Speed",
+  "WBGT_s" = "WBGT",
+  "SR_s" = "SR",
+  "NO2_s" = "NO2",
+  "SO2_s" = "SO2",
+  "Ozone_s" = "Ozone",
+  "PM2.5_s" = "PM2.5"
+)
+
+# Wrapper funct to fit spline, create plot, and extract adjusted R-squared
+create_spline_plot <- function(df, show_y_axis =TRUE, 
+                               x_var, y_var = "X.CR") {
+
+  model_data <- df %>%
+    filter(!is.na(.data[[x_var]]) & !is.na(.data[[y_var]]) & 
+             is.finite(.data[[x_var]]) & is.finite(.data[[y_var]]))
+  
+  spline_fit <- ss(model_data[[x_var]], model_data[[y_var]])
+
+  adj_r2 <- summary(spline_fit)$adj.r.squared
+  
+  x_label <- paste0("Standardized ", std_x_labels[[x_var]] %||% x_var)
+  ylab_text <- if (show_y_axis) "% off course record" else ""
+
+  plot(spline_fit, xlab =" ", ylab = ylab_text, 
+       main = x_label, cex.lab = 2, cex.main = 1.5)
+  
+  # Add annotation for adjusted R²
+  legend(
+    "topright",
+    legend = paste0("Adj R² = ", round(adj_r2, 3)),
+    bty = "n",
+    text.col = "#CC3333",
+    cex = 1.5
+  )
+}
+
+# Create all plots
+par(mfrow = c(2, 4), oma = c(0, 0, 3, 0))
+for (i in seq_along(std_environ_factors)) {
+  show_y_axis <- (i %% 4 == 1)
+  create_spline_plot(merged_main, x_var = std_environ_factors[i], 
+                     y_var = "X.CR",
+                     show_y_axis = show_y_axis)
+}
+mtext("Figure: Spline Fits of Environmental Factors on % off Course Record", 
+      outer = TRUE, cex = 1.5, font = 2)
+```
+
 
 
 
