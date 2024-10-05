@@ -390,7 +390,7 @@ print(combined_plot)
 
 ## \textcolor{orange}{RESULTS}
 
-```{r, fig.width = 6, fig.height = 3}
+```{r, fig.width = 6, fig.height = 3, fig.align='center'}
 off_record_gender_age = ggplot(merged_main, 
                                aes(x = Age, y = X.CR, color = Gender)) +
   # Loess smoothing with 95% CI
@@ -408,7 +408,7 @@ off_record_gender_age = ggplot(merged_main,
     plot.title = element_text(hjust = 0.5, face = "bold", size = 8),
     axis.title.x = element_text(size = 8),
     axis.title.y = element_text(size = 8),
-    legend.title = element_blank(), 
+    legend.title = element_blank(),
     legend.position = "none" 
   )
 
@@ -429,6 +429,7 @@ race_time_gender_age = ggplot(merged_main, aes(x = Age,
     axis.title.x = element_text(size = 8),
     axis.title.y = element_text(size = 8),
     legend.title = element_blank(), 
+    legend.text = element_text(size = 6),
     legend.position = "right" 
   )
 
@@ -437,8 +438,8 @@ combined_plot <- wrap_plots(off_record_gender_age, race_time_gender_age, ncol = 
     title = "Figure 4: Impact of Age on Marathon Performance by Gender",
     theme = theme(plot.title = element_text(hjust = 0.5, size = 12))  
   ) +
-  plot_layout(ncol = 2, widths = c(1, 1.2)) & 
-  theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.05), "cm"))
+  plot_layout(ncol = 2, widths = c(1, 1.15)) & 
+  theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 combined_plot
 ```
@@ -472,14 +473,15 @@ colnames(cor_table)[2:3] <- c("Net race time in all runners", "Course record")
 rownames(cor_table) <- c("WBGT", "%rh", "Wind Speed", "Solar Radiation", 
                          "NO2", "SO2", "Ozone", "PM2.5")
 cor_table[, -1] %>%
-  kable(caption = "Correlation between Environmental Factors and Net Race Times") %>%
+  kable(caption = "Correlation between Environmental Factors and Net Race Times",
+        linesep = "\\addlinespace") %>%
   kable_styling(
     full_width = FALSE,
     latex_options = c("striped", "repeat_header"),
     stripe_color = "gray!15",
     font_size = 9,
     position = "center"
-  )
+  ) 
 
 ```
 
