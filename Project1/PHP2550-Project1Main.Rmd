@@ -287,9 +287,9 @@ merged_main  %>%
   ) %>%
   kableExtra::kable_styling(
     position = "center",
-    latex_options = c("scale_down","striped", "repeat_header"),
+    latex_options = c("striped", "repeat_header"),
     stripe_color = "gray!15",
-    font_size = 9
+    font_size = 8
   )
 ```
 
