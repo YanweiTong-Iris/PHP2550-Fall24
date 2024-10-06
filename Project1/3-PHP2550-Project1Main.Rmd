@@ -685,7 +685,7 @@ Note that due to data sparsity, runners with age <= 14 were not included in the 
 
 Given the non-linearity of the data, generalized additive models (GAM) with a Gaussian family and log link was conducted to identify the most significant environmental factors. Note that to better visualize the results, the factors were analyzed on a standardized scale. The results presented in **Figure 7** and **Table 4** present the GAM results for general runners. Except for wind spped, the approximate p-values for other smooth terms of the GAM are very small, indicating strong statistical evidence of associations between these environmental factors and marathon performance (as measured by percent off the course record). 
 
-However, the adjusted R$^2$ values and the percentage of deviance explained are consistently low, with adjusted R$^2$ values ranging from 0.13\% for percent relative humidity to a maximum of 0.78% for NO$_2$. Similarly, the percentage of deviance explained does not exceed 1% for any of the environmental factors, with most falling below 0.5%. In short, despite the statistical significance, the practical impacts (effect sizes) of these findings are minimal, meaning that their ability to explain variation in marathon performance is extremely limited. 
+However, the adjusted R$^2$ values and the percentage of deviance explained are consistently low, with adjusted R$^2$ values ranging from 0.13\% for percent relative humidity to a maximum of 0.78% for NO$_2$. Similarly, the percentage of deviance explained does not exceed 1% for any of the environmental factors, with most falling below 0.5%. In short, despite the statistical significance, the practical impacts (effect sizes) of these findings are minimal, meaning that their ability to explain variation in marathon performance is extremely limited. A Spline regression was also conducted to confirm the statistically significant but not practically meaningful association between environmenal factors and marathon performance. Corresponding supplemental figures with adjusted R$^2$ can be found in the **Figure Appendix** section.
 
 ```{r, fig.width = 12, fig.height = 3.5}
 std_environ_factors = c("Wind_s", "WBGT_s", "SR_s", "X.rh_s",
@@ -760,6 +760,7 @@ for (i in 5:8) {
                   ylab_text = "% off course record")
 }
 ```
+
 
 ```{r}
 # Data frame to store results
@@ -987,7 +988,7 @@ In conclusion, while environmental factors may have some impact on marathon perf
 
 ## \textcolor{orange}{LIMITATIONS}
 
-This analysis encountered notable levels of missingness in the air pollutant data, particularly for NO$_2$, SO$_2$, and PM$_2.5$, where the missing rate far exceeded the 5\% safety line to ignore missingness. While this level of missingness does not immediately invalidate the analysis, it does present a challenge to the robustness of the conclusions. For simplicity, this study excluded entries with missing data rather than employing imputation techniques. Ideally, methods like Multiple Imputation by Chained Equations (MICE) could be used to address the missingness more rigorously, thereby preserving more data for analysis. Alternatively, fuller or more comprehensive pollutant data could be extracted from the EPA’s extensive meta database, offering another avenue for future improvements.
+This analysis encountered notable levels of missingness in the air pollutant data, particularly for NO$_2$, SO$_2$, and PM$_{2.5}$, where the missing rate far exceeded the 5\% safety line to ignore missingness. While this level of missingness does not immediately invalidate the analysis, it does present a challenge to the robustness of the conclusions. For simplicity, this study excluded entries with missing data rather than employing imputation techniques. Ideally, methods like Multiple Imputation by Chained Equations (MICE) could be used to address the missingness more rigorously, thereby preserving more data for analysis. Alternatively, fuller or more comprehensive pollutant data could be extracted from the EPA’s extensive meta database, offering another avenue for future improvements.
 
 Given the non-linear and non-normal distribution of marathon performance in relation to environmental factors, several statistical approaches were employed, including LOESS smoothing, Spearman correlation, and Generalized Additive Models. These methods allowed for flexible (non-parametric) modeling of complex, non-linear relationships. However, the use of GAM presented limitations, particularly in the ability to adjust for covariates such as age and gender. Unlike (generalized) linear models , which easily incorporate such covariates, GAM’s focus on non-parametric smooth terms makes it harder to control for these factors explicitly. As a result, this analysis was unable to clearly quantify the differences in environmental effects across different age groups and genders, which limits our ability to discern how these factors might differentially affect various runner populations. Future work should explore hybrid models or extensions of methods like GAM or Spline that can better handle covariates like age and gender to provide a more complete picture.
 
@@ -1082,6 +1083,69 @@ ggplot(merged_main %>% filter(Age >= 15), aes(x = PM2.5, y = X.CR, color = Gende
     x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
   theme_minimal() +
   theme(legend.position = "none")
+```
+
+### Supplemental Spline plots for the impact of standardized environmental factors on general marathon performance
+
+```{r, fig.width = 12, fig.height = 6}
+std_environ_factors = c("Wind_s", "WBGT_s", "SR_s", "X.rh_s",
+                        "Ozone_s", "SO2_s", "NO2_s", "PM2.5_s")
+
+std_x_labels <- list(
+  "X.rh_s" = "% relative humidity",
+  "Wind_s" = "Wind Speed",
+  "WBGT_s" = "WBGT",
+  "SR_s" = "SR",
+  "NO2_s" = "NO2",
+  "SO2_s" = "SO2",
+  "Ozone_s" = "Ozone",
+  "PM2.5_s" = "PM2.5"
+)
+
+# Wrapper funct to fit spline, create plot, and extract adjusted R-squared
+create_spline_plot <- function(df, show_y_axis =TRUE, 
+                               x_var, y_var = "X.CR") {
+  
+  model_data <- df %>%
+    filter(!is.na(.data[[x_var]]) & !is.na(.data[[y_var]]) & 
+             is.finite(.data[[x_var]]) & is.finite(.data[[y_var]]))
+  
+  spline_fit <- ss(model_data[[x_var]], model_data[[y_var]])
+  
+  adj_r2 <- summary(spline_fit)$adj.r.squared
+  
+  x_label <- paste0("Standardized ", std_x_labels[[x_var]] %||% x_var)
+  ylab_text <- if (show_y_axis) "% off course record" else ""
+  
+  mar_setting <- if (show_y_axis) c(5, 4, 4, 2) else c(5, 1.5, 4, 2)
+  par(mar = mar_setting)
+  
+  plot(spline_fit, xlab =" ", ylab = ylab_text, 
+       main = x_label, cex.lab = if (show_y_axis) 1.5 else 0.1, 
+       cex.main = 1.5)
+  
+  # Add annotation for adjusted R²
+  legend(
+    "topright",
+    legend = paste0("Adj R² = ", round(adj_r2, 3)),
+    bty = "n",
+    text.col = "#CC3333",
+    cex = 1.5
+  )
+}
+
+# Create all plots
+par(mfrow = c(2, 4), oma = c(0, 0, 3, 0))
+for (i in seq_along(std_environ_factors)) {
+  show_y_axis <- (i %% 4 == 1)
+  create_spline_plot(merged_main, x_var = std_environ_factors[i], 
+                     y_var = "X.CR",
+                     show_y_axis = show_y_axis)
+}
+mtext("Figure S7: Spline Fits of Standardized Environmental Factors on % off Course Record", 
+      outer = TRUE, cex = 1.5, font = 2)
+
+
 ```
 
 
