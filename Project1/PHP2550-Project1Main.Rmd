@@ -490,16 +490,16 @@ for (i in seq_along(environ_factors)) {
   factor <- environ_factors[i]
   
   # Correlation for NetRaceTime for all runners
-  cor_table$NetRaceTime_Corr[i] <- cor(merged_main[[factor]], 
+  cor_table$NetRaceTime_Corr[i] <- round(cor(merged_main[[factor]], 
                                        merged_main$NetRaceTime, 
                                        use = "complete.obs", 
-                                       method = "spearman")
+                                       method = "spearman"), 4)
   
   # Correlation for ChipTime in records
-  cor_table$ChipTime_Corr[i] <- cor(CR_merged[[factor]], 
+  cor_table$ChipTime_Corr[i] <- round(cor(CR_merged[[factor]], 
                                     CR_merged$ChipTime, 
                                     use = "complete.obs", 
-                                    method = "spearman")
+                                    method = "spearman"), 4)
 }
 
 colnames(cor_table)[2:3] <- c("Net race time in all runners", "Course record")
@@ -510,7 +510,7 @@ cor_table[, -1] %>%
         for General Runners and Record Setters") %>%
     kableExtra::kable_styling(
     position = "center",
-    latex_options = c("striped", "repeat_header"),
+    latex_options = c("scale_down", "striped", "repeat_header"),
     stripe_color = "gray!15",
     font_size = 11
   )
@@ -760,7 +760,7 @@ colnames(gam_results) <- c("Standardized variable", "n","Approxi. F-value",
                            "Approxi. p-value", "Adj. R2", "% Dev. explained")
 
 gam_results %>%
-  kable(caption = "GAM Results- Percent off Course Record vs. Standardized Environmental Factors",
+  kable(caption = "GAM Results- Percent off Course Record for General Runners vs. Standardized Environmental Factors",
         align = "c") %>%
   kable_styling(full_width = FALSE,
                 latex_options = c("striped", "repeat_header"),
