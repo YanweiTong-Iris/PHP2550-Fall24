@@ -470,7 +470,7 @@ race_time_gender_age = ggplot(merged_main, aes(x = Age,
 combined_plot <- wrap_plots(off_record_gender_age, race_time_gender_age, ncol = 2) +
   plot_annotation(
     title = "Figure 4: Impact of Age on Marathon Performance by Gender and WBGT Flag",
-    theme = theme(plot.title = element_text(hjust = 0.5, size = 12))  
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 10))  
   ) +
   plot_layout(ncol = 2, widths = c(1, 1.15)) & 
   theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
