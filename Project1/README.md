@@ -32,7 +32,7 @@ This exploratory data analysis focused on the following 3 aims:
 
 The following packages were used in this analysis:
 
-1)  Data manipulation: `tidyverse`
+1)  Data extraction and manipulation: `tidyverse`, `RAQSAPI`
 
 2)  Table formatting: `gt`, `gtsummary`, `knitr`, `kableExtra`
 

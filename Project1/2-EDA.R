@@ -636,4 +636,4 @@ gam_results %>%
                 font_size = 9,
                 position = "center")
 
-```
+
