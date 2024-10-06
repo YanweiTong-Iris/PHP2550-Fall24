@@ -183,9 +183,9 @@ merged_main %>%
   ) %>%
   kableExtra::kable_styling(
     position = "center",
-    latex_options = c("striped", "repeat_header"),
+    latex_options = c("scale_down", "striped", "repeat_header"),
     stripe_color = "gray!15",
-    font_size = 9
+    font_size = 10
   )
 
 ```
@@ -265,10 +265,10 @@ merged_main  %>%
     label = list(
       WBGT = "WBGT (°C)",
       Flag = "WBGT flag",
-      Td..C = "Dry bulb temperature (°C)",
-      Tw..C = "Wet bulb temperature (°C)",
-      Tg..C = "Black globe temperature (°C)",
-      DP = "Dew point (°C)",
+      Td..C = "Td (°C)",
+      Tw..C = "Tw (°C)",
+      Tg..C = "Tg (°C)",
+      DP = "DP (°C)",
       X.rh = "% relative humidity",
       Wind = "Wind speed (Km/hr)",
       SR = "SR (W/m^2)",
@@ -287,9 +287,9 @@ merged_main  %>%
   ) %>%
   kableExtra::kable_styling(
     position = "center",
-    latex_options = c("striped", "repeat_header"),
+    latex_options = c("scale_down","striped", "repeat_header"),
     stripe_color = "gray!15",
-    font_size = 8
+    font_size = 9
   )
 ```
 
@@ -597,21 +597,23 @@ combined_plot <- wrap_plots(plots, ncol = 4) &
 combined_plot
 ```
 
-Then, we broke the environmental impacts by both genders and age groups. Take the effects of WBGT and NO$_2$ as examples. For runners in the 20-59 year-old age groups, the two factors' influence on marathon performance appears to be minimal, as the regression line is nearly horizontal. In contrast, for both younger runners (15-19 years) and older runners (above 60 years), the relationship between WBGT or NO$_2$ and marathon performance seems more non-linear, with slight increases and decreases in performance with the increasing WBGT or increasing concentration of NO$_2$. Despite these age-specific trends, the overall patterns for men and women are similar, reiterating that gender does not significantly modify the relationship between environmental stressors and marathon performance. For clarity, the by-age-and-gender LOESS plots for the remaining six environmental factors can be found in the Figure Appendix section.
+Then, we further broke down the environmental impacts by both genders and age groups. Take the effects of WBGT and NO$_2$ as examples. For runners in the 20-59 year-old age groups, the two factors' influence on marathon performance appears to be minimal, as the regression line is nearly horizontal. In contrast, for both younger runners (15-19 years) and older runners (above 60 years), the relationship between WBGT or NO$_2$ and marathon performance seems more non-linear, with slight increases and decreases in performance with the increasing WBGT or increasing concentration of NO$_2$. Despite these age-specific trends, the overall patterns for men and women are similar, reiterating that gender does not significantly modify the relationship between environmental stressors and marathon performance. 
 
-```{r, fig.height = 4, fig.width = 9}
+```{r, fig.height = 3.5, fig.width = 9}
 ggplot(merged_main %>% filter(Age >= 15), aes(x = WBGT, y = X.CR, color = Gender)) +
   geom_point(size = 0.3, alpha = 0.3) +
   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
   facet_grid(Gender~Age_Group) +
   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
   scale_y_continuous(limits = c(0, 300)) +
-  labs(title = "Figure 6: the Impact of WBGT and NO2 on Marathon Performance",
+  labs(title = "Figure 6: the Impact of WBGT and NO2 on Marathon Performance for General Runners",
        x = "WBGT (°C)", y = "Percent off current course record") +
   theme_minimal() +
   theme(legend.position = "none",
         plot.title = element_text(size = 14, hjust = 0.5))
+```
 
+```{r, fig.height = 3.3, fig.width = 9}
 ggplot(merged_main %>% filter(Age >= 15), aes(x = NO2, y = X.CR, color = Gender)) +
   geom_point(size = 0.3, alpha = 0.3) +
   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
@@ -623,6 +625,8 @@ ggplot(merged_main %>% filter(Age >= 15), aes(x = NO2, y = X.CR, color = Gender)
   theme(legend.position = "none")
 
 ```
+
+For clarity, the by-age-and-gender LOESS plots for the remaining six environmental factors can be found in the Figure Appendix section.
 
 Given the non-linearity of the data, generalized additive models (GAM) with a Gaussian family and log link was conducted to identify the most significant environmental factors. Note that to better visualize the results, the factors were analyzed on a standardized scale. The results presented in **Figure 7** and **Table 4** present the GAM results for general runners. Except for wind spped, the approximate p-values for other smooth terms of the GAM are very small, indicating strong statistical evidence of associations between these environmental factors and marathon performance (as measured by percent off the course record). However, the adjusted R$^2$ values and the percentage of deviance explained are consistently low, with adjusted R$^2$ values ranging from 0.13\% for percent relative humidity to a maximum of 0.78% for NO$_2$. Similarly, the percentage of deviance explained does not exceed 1% for any of the environmental factors, with most falling below 0.5%. In short, despite the statistical significance, the practical significance of these findings is minimal, meaning that their ability to explain variation in marathon performance is extremely limited. 
 
@@ -987,7 +991,7 @@ ggplot(merged_main %>% filter(Age >= 15), aes(x = SO2, y = X.CR, color = Gender)
 ```
 
 ```{r, fig.height = 3.5, fig.width = 9}
-ggplot(merged_main %>% filter(Age >= 15), aes(x = Ozone, y = X.CR, color = Gender)) +
+ggplot(merged_main %>% filter(Age >= 15), aes(x = Ozone_s, y = X.CR, color = Gender)) +
   geom_point(size = 0.3, alpha = 0.3) +
   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
   facet_grid(Gender~Age_Group) +
