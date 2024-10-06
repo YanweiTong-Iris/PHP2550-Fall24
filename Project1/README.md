@@ -2,7 +2,7 @@
 
 ## IMPACT OF WEATHER ON MARATHON PERFORMANCE ACROSS AGE AND GENDER
 
-### Overview
+## Overview
 
 This exploratory data analysis focused on the following 3 aims:
 
@@ -12,9 +12,11 @@ This exploratory data analysis focused on the following 3 aims:
 
 3.  Identify the environmental parameters (WBGT, Flag conditions, temperature, air pollution etc) that have the largest impact on marathon performance.
 
-### Directory Structure
+## Abstract
 
-**`american-statistical-association.csl**: ASA citation style language file.
+## Directory Structure
+
+**`american-statistical-association.csl`**: ASA citation style language file for citation formatting in the report file.
 
 **`0-references.bib`**: the article bibliography for the main report.
 
@@ -26,4 +28,18 @@ This exploratory data analysis focused on the following 3 aims:
 
 **`3-PHP2550-Project1Main.pdf`**: the knitted report as .pdf.
 
-Contributor: Yanwei (Iris) Tong
+## Dependencies
+
+The following packages were used in this analysis:
+
+1)  Data manipulation: `tidyverse`
+
+2)  Table formatting: `gt`, `gtsummary`, `knitr`, `kableExtra`
+
+3)  Data visualization: `ggplot2`, `patchwork`, `naniar`
+
+4)  Statistical analyses: `npreg`, `mosaic`, `mgcv`
+
+5)  Citations: `knitcitations`
+
+**Contributor**: Yanwei (Iris) Tong

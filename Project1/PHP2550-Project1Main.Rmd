@@ -15,13 +15,12 @@ abstract: |
   **Purpose:** The objectives of this exploratory study were to determine the effects of gender, age, and environmental stressors on marathon performance, and to identify the factors with maximal impacts.
   
   \noindent 
-  **Methods:**
+  **Methods:** We analyzed the results of 96 major marathon events in the U.S. from 1993 to 2016. LOESS plots, Spearman correlation test, GAM with a Gamma family, and other supplementary analyses were perfromed to visualize and investigate the non-linear effects of age, weather conditions, i.e., Wet Bulb Globe Temperatur (°C), wind speed (km/hr), solar radiation (W/m$^2$), percent relative humidity (\%), and the concentrations of 4 criteria air pollutants: PM$_{2.5}$ ($\mu$g/m$^3$), SO$_2$ (ppm), NO$_2$ (ppm), and O$_3$ (ppb) on marathon performance for all runners and record holders across genders. 
   
   \noindent 
-  **Results:**
+  **Results and conclusion:**
   
-  \noindent 
-  **Conclusion:**
+
 csl: american-statistical-association.csl
 bibliography: 0-references.bib
 ---
@@ -154,7 +153,7 @@ Together, these studies underscore the complex interplay of gender, age, and env
 
 
 ## \textcolor{orange}{METHODS}
-## Data Overview
+### Data Overview
 
 Marathon race results were obtained from five major U.S. marathons (Boston, Chicago, New York City, Grandmas, and Twin Cities) spanning the years 1993 to 2016. The total number of collected performances was 11,564 for the 96 races. The gender distribution was nearly even across all , with 47% female and 53% male participants across all events. The average age of runners varied slightly between marathons, ranging from 44 to 50 years, with the Twin Cities marathon hosting a slightly younger average age of participants compared to the others. Statistically significant differences in age were observed amongst races (p < 0.001).
 
@@ -189,7 +188,7 @@ merged_main %>%
     position = "center",
     latex_options = c("striped", "repeat_header"),
     stripe_color = "gray!15",
-    font_size = 8
+    font_size = 9
   )
 
 ```
@@ -237,7 +236,7 @@ custom_labels <- c( "SO2 (ppb)", "NO2 (ppb)",
                    "%rh", "Tg (°C)", "SR (W/m^2)")
 
 
-cor_matrix <- cor(environ_data, use = "complete.obs", method = "pearson")
+cor_matrix <- cor(environ_data, use = "complete.obs", method = "spearman")
 colnames(cor_matrix) <- custom_labels
 rownames(cor_matrix) <- custom_labels
 
@@ -256,7 +255,7 @@ title("Figure 2: Correlation between Environmental Parameters", cex.main = 0.8)
 ```
 
 
-**Figure 2** demonstrates the relationships between various environmental parameters. SO$_2$ and NO$_2$ exhibit a strong positive correlation (0.82), while ozone shows mild negative correlations with both SO$_2$ (-0.24) and NO$_2$ (-0.31). PM$_{2.5}$ correlates positively with SO$_2$ (0.51) and NO$_2$ (0.67), but less with ozone (0.12). These patterns may suggest different underlying pollution sources. Importantly, WBGT, which is a weighted average of dry bulb, wet bulb, and globe temperatures, expectedly shows strong correlations with DP (0.97), Td (0.97), Tw (0.98), and Tg (0.88). This high degree of correlation among temperature-related variables highlights the issue of multicollinearity. As WBGT integrates these components and represents overall thermal stress, further analyses will focus on WBGT as the primary temperature measure, thereby avoiding redundancy and potential co-linearity issues in the statistical models.
+**Figure 2** demonstrates the relationships between various environmental parameters. SO$_2$ and NO$_2$ exhibit a strong positive correlation (0.82), while ozone shows mild negative correlations with both SO$_2$ (-0.24) and NO$_2$ (-0.31). PM$_{2.5}$ correlates positively with SO$_2$ (0.51) and NO$_2$ (0.67), but less with ozone (0.12). These patterns may suggest different underlying pollution sources. Importantly, WBGT, which is a weighted average of dry bulb, wet bulb, and globe temperatures, expectedly shows strong correlations with DP (0.87), Td (0.97), Tw (0.98), and Tg (0.86). This high degree of correlation among temperature-related variables highlights the issue of multicollinearity. As WBGT integrates these components and represents overall thermal stress, further analyses will focus on WBGT as the primary temperature measure, thereby avoiding redundancy and potential co-linearity issues in the statistical models.
 
 Regarding the distribution of the environmental parameters, the small p-values across **Table 2** indicate significant differences in weather conditions and air quality among the five major marathons. Variables such as WBGT, wind speed, humidity, and pollutants like NO$_2$ and SO$_2$ demonstrate considerable variability across locations, highlighting the unique environmental contexts in which each race was conducted. These findings suggest that environmental conditions may play a role in influencing marathon performance, particularly across different regions. **Figure 3** presents histograms of key environmental factors with levels of missingness. It shows that these variables are generally non-normal and with high variability. 
 
@@ -319,7 +318,7 @@ merged_main  %>%
   )
 ```
 
-Moreover, most of the missingness in the dataset pertains to the air pollutant parameters, with NO$_2$ showing a missingness rate of 17.71%, SO$2$ at 16.67%, and PM${2.5}$ at 21.88%. These higher levels of missing data may present challenges to the robustness of subsequent analyses, particularly when assessing the impact of air quality on marathon performance. In contrast, the missingness rates for weather conditions are relatively low, approximately 4%, and only 3% for O$_3$, both of which satisfy the 5% rule of thumb, allowing for the safe assumption that ignoring these missing data will not significantly affect the overall results.
+Moreover, most of the missingness in the dataset pertains to the air pollutant parameters, with NO$_2$ showing a missingness rate of 17.71\%, SO$_2$ at 16.67\%, and PM$_{2.5}$ at 21.88\%. These higher levels of missing data may present challenges to the robustness of subsequent analyses, particularly when assessing the impact of air quality on marathon performance. In contrast, the missingness rates for weather conditions are relatively low, approximately 4\%, and only 3\% for O$_3$, both of which satisfy the 5% rule of thumb, allowing for the safe assumption that ignoring these missing data will not significantly affect the overall results.
 
 ```{r, fig.width = 12, fig.height = 6}
 distinct_environ = CR_merged[, c("WBGT", "X.rh", "Wind","SR", 
@@ -388,10 +387,13 @@ print(combined_plot)
 ```
 
 
+### Analysis Methods
 
-## Statistical Analysis
+In this exploratory study, we first employed locally estimated scatterplot smoothing (LOESS) to visually investigate the potential impact of age on marathon performance between genders and effects of various environmental factors  across different age-gender subgroups. These visualizations provided an initial overview of the relationships, highlighting any non-linear trends or differences in performance between genders or across age groups. 
 
+A Spearman correlation test was then performed to quantitatively assess the overall associations between environmental variables and marathon performance, both for the entire cohort and for record-setting runners. Spearman correlation is suitable for capturing monotonic relationships without assuming normality, given that we knew non-lieanrity exists for most of the parameters and performance outcomes. 
 
+Finally, to identify the most significant predictors and provide a more robust analysis, generalized additive models (GAMs) were fit using a Gamma family with a log link function. This approach allowed us to model non-linear effects while generating approximate F-values, p-values, and adjusted R² for each environmental factor. This method enabled us to identify which factors exhibited the most significant influence on marathon performance, offering a more comprehensive understanding of the key environmental variables impacting both general and top-level performance.
 
 
 ## \textcolor{orange}{RESULTS}
@@ -453,7 +455,7 @@ combined_plot
 ```
 
 
-To explore the impact of environmental conditions on marathon performance, we started with analyzing the correlations between various environmental factors and these two performance metrics: net race time in all runners (n = 11564) and the course records in minutes for all race events (n = 192). The results are displayed in **Table 3**. Overall, the correlations are relatively low. Among the environmental factors, WBGT showed the highest positive correlation with both net race time and course record, indicating that higher WBGT is associated with slower performances. Conversely, wind speed, solar radiation, and % relative humidity displayed negative correlations, suggesting that higher values of these factors may slightly improve performance, although the effect sizes are small. Interestingly, while NO$_2$ showed a very weak positive correlation with net race time in all runners (r = 0.0022), it had a stronger negative correlation with the course record (r = -0.118). Similar opposite directional patterns were observed for PM$_{2.5}$ and solar radiation, suggesting that the association between environmental factors and marathon performance may vary depending on whether we consider the entire field of runners or focus specifically on top performers (course record creators). This differential effect highlights the need for tailored analyses when assessing environmental impacts on performance across different levels of competitiveness. 
+To explore the impact of environmental conditions on marathon performance, we started with analyzing the overall correlations between various environmental factors and these two performance metrics: net race time in all runners (n = 11564) and the course records in minutes for all race events (n = 192). The results are displayed in **Table 3**. Overall, the correlations are relatively low. Among the environmental factors, WBGT showed the highest positive correlation with both net race time and course record, indicating that higher WBGT is associated with slower performances. Conversely, wind speed, solar radiation, and % relative humidity displayed negative correlations, suggesting that higher values of these factors may slightly improve performance, although the effect sizes are small. Interestingly, while NO$_2$ showed a very weak positive correlation with net race time in all runners (r = 0.0022), it had a stronger negative correlation with the course record (r = -0.118). Similar opposite directional patterns were observed for PM$_{2.5}$ and solar radiation, suggesting that the association between environmental factors and marathon performance may vary depending on whether we consider the entire field of runners or focus specifically on top performers (course record setters). This differential effect highlights the need for tailored analyses when assessing environmental impacts on performance across different levels of competitiveness. 
 
 ```{r}
 cor_table <- data.frame(
@@ -483,19 +485,19 @@ colnames(cor_table)[2:3] <- c("Net race time in all runners", "Course record")
 rownames(cor_table) <- c("WBGT", "%rh", "Wind Speed", "Solar Radiation", 
                          "NO2", "SO2", "Ozone", "PM2.5")
 cor_table[, -1] %>%
-  kable(caption = "Spearman Correlation between Environmental Factors and Marathon Performance") %>%
-  kable_styling(
-    full_width = FALSE,
+  kable(caption = "Spearman Correlation between Environmental Factors and Net Race Time 
+        for General Runners and Record Setters") %>%
+    kableExtra::kable_styling(
+    position = "center",
     latex_options = c("striped", "repeat_header"),
     stripe_color = "gray!15",
-    font_size = 9,
-    position = "center"
-  ) 
+    font_size = 10
+  )
 
 ```
 
 
-**Figure 5** illustrates the impact of various environmental factors on marathon performance, stratified by gender. Across all environmental factors—including wind speed, WBGT, solar radiation, percent relative humidity, and air pollutants (Ozone, NO2, SO2, and PM2.5)—the effect of gender appears minimal, with male and female runners exhibiting similar patterns. The impact of environmental conditions on performance is notably non-linear, with clear curvatures visible across several variables, particularly WBGT and percent relative humidity. These results suggest complex interactions between environmental factors and performance, but without a significant difference in gender-specific responses.
+**Figure 5** illustrates the impact of various environmental factors on marathon performance, stratified by gender. Across all environmental factors—including wind speed, WBGT, solar radiation, percent relative humidity, and air pollutants (Ozone, NO$_2$, SO$_2$, and PM$_{2.5}$)—the effect of gender appears minimal, with male and female runners exhibiting similar patterns. The impact of environmental conditions on performance is notably non-linear, with clear curvatures visible across several variables, particularly WBGT and percent relative humidity. These results suggest complex interactions between environmental factors and performance, but without a significant difference in gender-specific responses.
 
 ```{r, fig.width = 12, fig.height = 3}
 # List of pollutant variables and their labels
@@ -573,41 +575,34 @@ combined_plot <- wrap_plots(plots, ncol = 4) &
 combined_plot
 ```
 
+Then, we broke the environmental impacts by both genders and age groups. Take the effects of WBGT and NO$_2$ as examples. For runners in the 20-59 year-old age groups, the two factors' influence on marathon performance appears to be minimal, as the regression line is nearly horizontal. In contrast, for both younger runners (15-19 years) and older runners (above 60 years), the relationship between WBGT or NO$_2$ and marathon performance seems more non-linear, with slight increases and decreases in performance with the increasing WBGT or increasing concentration of NO$_2$. Despite these age-specific trends, the overall patterns for men and women are remarkably similar, reiterating that gender does not significantly modify the relationship between environmental stressors and marathon performance.
 
-
-```{r, fig.height = 3.5, fig.width = 9}
-# ggplot(merged_main %>% filter(Age >= 15), aes(x = WBGT, y = X.CR, color = Gender)) +
-#   geom_point(size = 0.3, alpha = 0.3) +
-#   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
-#   facet_grid(Gender~Age_Group) +
-#   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
-#   scale_y_continuous(limits = c(0, 300)) + 
-#   labs(title = "Impact of WBGT on Marathon Performance by Gender and Age",
-#        x = "WBGT", y = "Percent off current course record") +
-#   theme_minimal() + 
-#   theme(legend.position = "none")
-
-ggplot(merged_main %>% filter(Age >= 15), aes(x = SO2_s, y = X.CR, color = Gender)) +
-  geom_point(size = 0.3, alpha = 0.3) +
-  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
-  facet_grid(Gender~Age_Group) +
-  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) + 
-  scale_y_continuous(limits = c(0, 300)) + 
-  labs(title = "Impact of NO2 on Marathon Performance by Gender and Age",
-       x = "NO2 (ppm)", y = "Percent off current course record") +
-  theme_minimal() + 
-  theme(legend.position = "none")
-
-ggplot(merged_main %>% filter(Age >= 15), aes(x = Ozone_s, y = X.CR, color = Gender)) +
+```{r, fig.height = 7, fig.width = 9}
+WBGT = ggplot(merged_main %>% filter(Age >= 15), aes(x = WBGT, y = X.CR, color = Gender)) +
   geom_point(size = 0.3, alpha = 0.3) +
   geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
   facet_grid(Gender~Age_Group) +
   scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
   scale_y_continuous(limits = c(0, 300)) +
-  labs(title = "Impact of PM2.5 on Marathon Performance by Gender and Age",
-       x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
+  labs(x = "WBGT (°C)", y = "Percent off current course record") +
   theme_minimal() +
   theme(legend.position = "none")
+
+NO2 = ggplot(merged_main %>% filter(Age >= 15), aes(x = NO2, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(x = "NO2 (ppm)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+combined_plot <- WBGT / NO2 +
+  plot_annotation(title = "Figure 6: the Impact of WBGT and NO2 on Marathon Performance",
+                  theme = theme(plot.title = element_text(size = 14, hjust = 0.5)))
+
+print(combined_plot)
 ```
 
 
@@ -669,7 +664,7 @@ for (i in seq_along(std_environ_factors)) {
   create_gam_plot(merged_main, x_var = std_environ_factors[i], 
                   y_var = "X.CR", show_y_axis = show_y_axis)
 }
-mtext("Figure: GAM Fits of Environmental Factors on % off Course Record", 
+mtext("Figure 7: GAM Fits of Environmental Factors on % off Course Record", 
       outer = TRUE, cex = 1.5, font = 2) 
 ```
 
@@ -735,17 +730,16 @@ for (x_var in std_environ_factors) {
   ))
 }
 
-colnames(gam_results) <- c("Standardized var.", "n","Approxi. F-value",
-                           "Approxi.p-value", "Adj. R2", "% Dev. explained")
+colnames(gam_results) <- c("Standardized variable", "n","Approxi. F-value",
+                           "Approxi. p-value", "Adj. R2", "% Dev. explained")
 
 gam_results %>%
-  kable(caption = "GAM Results- % off Course Record vs. Standardized Environmental Factors",
-        align = "c",
-        escape = FALSE) %>%
+  kable(caption = "GAM Results- Percent off Course Record vs. Standardized Environmental Factors",
+        align = "c") %>%
   kable_styling(full_width = FALSE,
-                latex_options = "striped",
+                latex_options = c("striped", "repeat_header"),
                 stripe_color = "gray!15",
-                font_size = 9,
+                font_size = 10,
                 position = "center")
 
 ```
@@ -755,15 +749,102 @@ gam_results %>%
 ## \textcolor{orange}{CONCLUSION}
 
 
+
 ## \textcolor{orange}{DISCUSSION}
+
 
 
 ## Data Privacy and Code Availability
 
-Primary data were provided by and Dr. Matthew Ely from the Department of Health Sciences at Providence College. The original data cannot be shared directly for privacy. Replication scripts are available at https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project1.
+Primary data were provided by Dr. Brett Romano Ely and Dr. Matthew Ely from the Department of Health Sciences at Providence College. The original data cannot be shared directly for privacy. Replication scripts are available at https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project1.
 
 # Reference
 <div id="refs"></div>
+
+\pagebreak
+# Plot Appendix
+### Supplemental LOESS plots for the impact of environmental factors on performance by age and gender
+```{r, fig.height = 3.5, fig.width = 9}
+# Impact of environmental factors on performance by age and gender
+
+ggplot(merged_main %>% filter(Age >= 15), aes(x = SR, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Figure S1: The Impact of Solar Radiation on Marathon Performance by Age and Gender",
+    x = "SR (W/m^2)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r, fig.height = 3.5, fig.width = 9}
+ggplot(merged_main %>% filter(Age >= 15), aes(x = X.rh, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Figure S2: The Impact of Percent Relative Humidity on Marathon Performance by Age and Gender",
+    x = "SR (W/m^2)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r, fig.height = 3.5, fig.width = 9}
+ggplot(merged_main %>% filter(Age >= 15), aes(x = Wind, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Figure S3: The Impact of Wind Speed on Marathon Performance by Age and Gender",
+    x = "Wind speed (km/hr)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r, fig.height = 3.5, fig.width = 9}
+ggplot(merged_main %>% filter(Age >= 15), aes(x = SO2, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Figure S4: The Impact of SO2 on Marathon Performance by Age and Gender", 
+    x = "SO2 (ppm)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r, fig.height = 3.5, fig.width = 9}
+ggplot(merged_main %>% filter(Age >= 15), aes(x = Ozone, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Figure S5: The Impact of Ozone on Marathon Performance by Age and Gender", 
+    x = "Ozone (ppb)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r, fig.height = 3.5, fig.width = 9}
+ggplot(merged_main %>% filter(Age >= 15), aes(x = PM2.5, y = X.CR, color = Gender)) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, size = 0.75, color = "black") +
+  facet_grid(Gender~Age_Group) +
+  scale_color_manual(values = c("Male" = "steelblue", "Female" = "darkred")) +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Figure S6: The Impact of PM2.5 on Marathon Performance by Age and Gender", 
+    x = "PM2.5 (microgram/m^3)", y = "Percent off current course record") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
 
 \pagebreak
 # Code Appendix
