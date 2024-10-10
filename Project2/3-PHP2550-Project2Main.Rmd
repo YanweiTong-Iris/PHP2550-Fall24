@@ -1,0 +1,94 @@
+---
+title: ""
+subtitle: "PHP2550 Project 2: A regression analysis"
+author: "Yanwei (Iris) Tong"
+date: "2024-10-10"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+link-citations: yes
+header-includes:
+   - "\\usepackage{xcolor}"
+abstract: |
+  **Purpose:**
+  **Methods:** 
+  **Results and conclusion:** 
+  
+geometry: margin=1in
+fontsize: 10.5pt
+csl: american-statistical-association.csl
+bibliography: 0-references.bib
+---
+
+```{r setup, include=FALSE}
+# Set up knit environment
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      error = FALSE)
+
+# Load necessary packages
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(naniar)
+library(gtsummary)
+library(gt)
+library(patchwork)
+library(stargazer)
+library(knitcitations)
+library(mosaic)
+library(summarytools)
+library(npreg)
+library(mgcv)
+
+
+# Define data path
+data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project2"
+
+# Import datasets
+main_data = read.csv(paste0(data_path, "/project1.csv"))
+```
+
+
+## \textcolor{orange}{INTRODUCTION}
+
+
+## \textcolor{orange}{METHODS}
+### Data Overview
+
+
+
+
+### Analysis Methods
+
+
+
+## \textcolor{orange}{RESULTS}
+
+
+
+
+## \textcolor{orange}{CONCLUSION}
+
+
+## \textcolor{orange}{LIMITATIONS}
+
+
+# Reference
+<div id="refs"></div>
+
+\pagebreak
+# Figure Appendix
+
+
+
+
+\pagebreak
+# Code Appendix
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+
