@@ -11,7 +11,7 @@ link-citations: yes
 header-includes:
    - "\\usepackage{xcolor}"
 abstract: |
-  **Purpose:**
+  **Purpose:** "to examine baseline variables as potential moderators of the effects of behavioral treatment on end-of-treatment (EOT) abstinence and evaluate baseline variables as predictors of abstinence, controlling for behavioral treatment and pharmacotherapy"
   **Methods:** 
   **Results and conclusion:** 
   
@@ -43,13 +43,14 @@ library(mosaic)
 library(summarytools)
 library(npreg)
 library(mgcv)
+library(glmnet)
+library(pROC)
+library(MASS)
 
 
-# Define data path
+# Define data path and import data
 data_path = "/Users/yanweitong/Documents/PHP2550-Data/Project2"
-
-# Import datasets
-main_data = read.csv(paste0(data_path, "/project1.csv"))
+data = read.csv(paste0(data_path, "/project2.csv"))
 ```
 
 
