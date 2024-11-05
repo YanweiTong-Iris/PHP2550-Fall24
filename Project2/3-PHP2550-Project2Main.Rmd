@@ -62,12 +62,12 @@ data = data  %>%
     Black == 1 ~ "Black",
     Hisp == 1 ~ "Hispanic",
     TRUE ~ "Other"  # Handle cases where none of the above conditions are met
-  ), , levels = c("NHW", "Black", "Hispanic", "Other"))) %>%
+  ), levels = c("NHW", "Black", "Hispanic", "Other"))) %>%
   # create treatment categories
-  mutate(treatment_cat = factor(case_when(BA == 1 & Var == 0 ~ "BASC_placebo",
-                                   BA == 0 & Var == 0 ~ "ST_placebo",
-                                   BA == 1 & Var == 1 ~ "BASC_varenicline",
-                                   BA == 0 & Var == 1 ~ "ST_varenicline"))) %>% 
+  mutate(treatment_cat = factor(case_when(BA == 1 & Var == 0 ~ "BASC+placebo",
+                                   BA == 0 & Var == 0 ~ "ST+placebo",
+                                   BA == 1 & Var == 1 ~ "BASC+varenicline",
+                                   BA == 0 & Var == 1 ~ "ST+varenicline"))) %>% 
   # factorize categorical/ordinal variables
   mutate(
     abst = factor(abst),
@@ -79,8 +79,18 @@ data = data  %>%
     antidepmed = factor(antidepmed),
     mde_curr = factor(mde_curr),
     Only.Menthol = factor(Only.Menthol),
-    edu = factor(edu, levels = c(1, 2, 3, 4, 5)),
-    inc = factor(inc, levels = c(1, 2, 3, 4, 5))
+    edu = factor(edu, levels = c(1, 2, 3, 4, 5),
+                 labels = c("Grade school", 
+                            "Some high school", 
+                            "High school graduate or GED", 
+                            "Some college/technical school", 
+                            "College graduate")),
+    inc = factor(inc, levels = c(1, 2, 3, 4, 5),
+                 labels = c("Less than $20 000", 
+                            "$20 000–35 000", 
+                            "$35 001–50 000", 
+                            "$50 001–75 000", 
+                            "More than $75 000"))
   ) %>%
   # make integers numeric 
   mutate(across(
@@ -230,15 +240,24 @@ train_index <- sample(1:nrow(data), 0.7 * nrow(data))
 ```
 
 ```{r}
-table1_data = data
+# for sub-tab purpose
+table1_data = data %>%
+  mutate(
+    Demographics = NA,
+    Smoking = NA,
+    Psychiatric = NA
+  )
+  
 table1_data %>%
   dplyr::select(
     treatment_cat,
+    Demographics,
     age_ps,
     sex_ps,
     race,
     inc,
     edu,
+    Smoking,
     cpd_ps,
     ftcd_score,
     ftcd.5.mins,
@@ -249,6 +268,7 @@ table1_data %>%
     NMR,
     Only.Menthol,
     readiness,
+    Psychiatric,
     shaps_score_pq1,
     otherdiag,
     antidepmed,
@@ -268,7 +288,7 @@ table1_data %>%
       edu ~ "categorical",
       cpd_ps ~ "continuous", 
       ftcd_score ~ "continuous",
-      ftcd.5.mins ~ "categorical",
+      ftcd.5.mins ~ "dichotomous",
       bdi_score_w00 ~ "continuous",
       crv_total_pq1 ~ "continuous",
       hedonsum_n_pq1 ~ "continuous",
@@ -287,32 +307,42 @@ table1_data %>%
       race = "Race",
       inc = "Income",
       edu = "Education",
-      cpd_ps = "Cigarettes per day at baseline",
-      ftcd_score = "FTCD score at baseline",
+      cpd_ps = "Cigarettes per day",
+      ftcd_score = "FTCD scoree",
       ftcd.5.mins = "Smoking with 5 mins of waking up",
-      bdi_score_w00 = "BDI score at baseline",
-      crv_total_pq1 = "Cigarette reward value at baseline",
-      hedonsum_n_pq1 = "Pleasurable Events Scale at baseline \n(substitute reinforcers)",
-      hedonsum_y_pq1 = "Pleasurable Events Scale at baseline \n(complementary reinforcers)",
+      bdi_score_w00 = "BDI score",
+      crv_total_pq1 = "Cigarette reward value",
+      hedonsum_n_pq1 = "Pleasurable Events Scale (substitute)",
+      hedonsum_y_pq1 = "Pleasurable Events Scale (complementary)",
       Only.Menthol = "Exclusive Mentholated Cigarette User",
-      readiness = "Baseline readiness to quit smoking",
+      readiness = "Readiness to quit smoking",
       NMR = "Nicotine Metabolism Ratio",
       shaps_score_pq1 = "Anhedonia", 
       otherdiag = "Other lifetime DSM-5 diagnosis",
-      antidepmed = "Taking antidepressant medication at baseline",
+      antidepmed = "Antidepressant medication",
       mde_curr = "Current vs past MDD"
     ),
     value = list(
       sex_ps ~ "2",
+      Only.Menthol ~ "1",
       otherdiag ~ "1",
       antidepmed ~ "1",
       mde_curr ~ "1",
-      Only.Menthol ~ "1"
+      ftcd.5.mins ~ "1"
     )
   ) %>%
   add_overall() %>%
   modify_header(label ~ "**Characteristic**") %>%
-   modify_caption(caption = "Participant characteristics by treatment arm and overall sample") %>%
+  modify_caption(caption = "Participant characteristics by treatment arm and overall sample at baseline") %>%
+  modify_table_body(
+    ~ .x %>%
+      mutate(across(everything(), ~ ifelse(. == "0 (NA%)", "", .)))
+  ) %>%  
+  modify_table_styling(
+    rows = label %in% c("Demographics", "Smoking", "Psychiatric"),
+    columns = label,
+    text_format = "bold"
+  )   %>%
   as_kable_extra(
     booktabs = TRUE,
     longtable = TRUE,
