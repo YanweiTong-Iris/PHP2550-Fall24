@@ -79,7 +79,31 @@ data = data  %>%
     antidepmed = factor(antidepmed),
     mde_curr = factor(mde_curr),
     Only.Menthol = factor(Only.Menthol),
-    edu = factor(edu, levels = c(1, 2, 3, 4, 5),
+    edu = factor(edu, levels = c(1, 2, 3, 4, 5)),
+    inc = factor(inc, levels = c(1, 2, 3, 4, 5))
+  ) %>%
+  # make integers numeric 
+  mutate(across(
+    .cols = where(is.integer) & !all_of("id"),
+    .fns = as.numeric 
+  ))
+```
+
+## \textcolor{orange}{INTRODUCTION}
+
+## \textcolor{orange}{METHODS}
+
+### Data Overview
+
+```{r}
+# for sub-tab purpose
+table1_data = data %>%
+  mutate(
+    Demographics = NA,
+    Smoking = NA,
+    Psychiatric = NA
+  ) %>%
+  mutate(edu = factor(edu, levels = c(1, 2, 3, 4, 5),
                  labels = c("Grade school", 
                             "Some high school", 
                             "High school graduate or GED", 
@@ -90,163 +114,7 @@ data = data  %>%
                             "$20 000–35 000", 
                             "$35 001–50 000", 
                             "$50 001–75 000", 
-                            "More than $75 000"))
-  ) %>%
-  # make integers numeric 
-  mutate(across(
-    .cols = where(is.integer) & !all_of("id"),
-    .fns = as.numeric 
-  ))
-
-train_index <- sample(1:nrow(data), 0.7 * nrow(data))
-```
-
-## \textcolor{orange}{INTRODUCTION}
-
-## \textcolor{orange}{METHODS}
-
-### Data Overview
-```{r}
-# table1_data = data
-# 
-# # Demographics table
-# demographics_table <- table1_data %>%
-#   dplyr::select(
-#     treatment_cat,
-#     age_ps,
-#     sex_ps,
-#     race,
-#     inc,
-#     edu
-#   ) %>%
-#   tbl_summary(
-#     by = treatment_cat,
-#     label = list(
-#       age_ps = "Age (years)",
-#       sex_ps = "Sex",
-#       race = "Race",
-#       inc = "Income",
-#       edu = "Education"
-#     ),
-#     type = list(
-#       age_ps ~ "continuous",
-#       sex_ps ~ "dichotomous",
-#       race ~ "categorical",
-#       inc ~ "categorical",
-#       edu ~ "categorical"),
-#     value = list(
-#       sex_ps ~ "2"),
-#     statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
-#     digits = all_continuous() ~ 1,
-#     missing = "no"
-#   ) %>% add_overall() %>%
-#   modify_header(label ~ "**Demographics**")
-# 
-# # Smoking table
-# smoking_table <- table1_data %>%
-#   dplyr::select(
-#     treatment_cat,
-#     cpd_ps,
-#     ftcd_score,
-#     ftcd.5.mins,
-#     bdi_score_w00,
-#     crv_total_pq1,
-#     hedonsum_n_pq1,
-#     hedonsum_y_pq1,
-#     Only.Menthol,
-#     readiness,
-#     NMR
-#   ) %>%
-#   tbl_summary(
-#     by = treatment_cat,
-#     label = list(
-#       cpd_ps = "Cigarettes per day at baseline phone survey",
-#       ftcd_score = "FTCD score at baseline",
-#       ftcd.5.mins = "Smoking within 5 mins of waking up",
-#       bdi_score_w00 = "BDI score at baseline",
-#       crv_total_pq1 = "Cigarette reward value at baseline",
-#       hedonsum_n_pq1 = "Pleasurable Events Scale (substitute reinforcers)",
-#       hedonsum_y_pq1 = "Pleasurable Events Scale (complementary reinforcers)",
-#       Only.Menthol = "Exclusive Mentholated Cigarette User",
-#       readiness = "Readiness to quit smoking",
-#       NMR = "Nicotine Metabolism Ratio"
-#     ), type = list(
-#       cpd_ps ~ "continuous", 
-#       ftcd_score ~ "continuous",
-#       ftcd.5.mins ~ "categorical",
-#       bdi_score_w00 ~ "continuous",
-#       crv_total_pq1 ~ "continuous",
-#       hedonsum_n_pq1 ~ "continuous",
-#       hedonsum_y_pq1 ~ "continuous",
-#       NMR ~ "continuous",
-#       Only.Menthol ~ "categorical",
-#       readiness ~ "continuous"),
-#     statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
-#     digits = all_continuous() ~ 1,
-#     missing = "no"
-#   ) %>% add_overall() %>%
-#   modify_header(label ~ "**Smoking**")
-# 
-# # Psychiatric table
-# psychiatric_table <- table1_data %>%
-#   dplyr::select(
-#     treatment_cat,
-#     shaps_score_pq1,
-#     otherdiag,
-#     antidepmed,
-#     mde_curr
-#   ) %>%
-#   tbl_summary(
-#     by = treatment_cat,
-#     label = list(
-#       shaps_score_pq1 = "Anhedonia",
-#       otherdiag = "Other lifetime DSM-5 diagnosis",
-#       antidepmed = "Taking antidepressant medication at baseline",
-#       mde_curr = "Current vs past MDD"
-#     ), 
-#     type = list(shaps_score_pq1 ~ "continuous", 
-#       otherdiag ~ "dichotomous",
-#       antidepmed ~ "dichotomous",
-#       mde_curr ~ "dichotomous"),
-#     value = list(otherdiag ~ "1",
-#       antidepmed ~ "1",
-#       mde_curr ~ "1"),
-#     statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
-#     digits = all_continuous() ~ 1,
-#     missing = "no"
-#   ) %>% add_overall() %>%
-#   modify_header(label ~ "**Psychiatric**")
-# 
-# # Merge tables
-# final_table <- tbl_merge(
-#   tbls = list(demographics_table, smoking_table, psychiatric_table)
-# ) %>%
-#   modify_caption("Participant characteristics by treatment arm and overall sample") %>%
-#   as_kable_extra(
-#     booktabs = TRUE,
-#     longtable = TRUE,
-#     linesep = "",
-#     format = "latex"
-#   ) %>%
-#   kable_styling(
-#     position = "center",
-#     latex_options = c("striped", "repeat_header"),
-#     stripe_color = "gray!15",
-#     font_size = 7
-#   )
-# 
-# # Display the final table
-# final_table
-```
-
-```{r}
-# for sub-tab purpose
-table1_data = data %>%
-  mutate(
-    Demographics = NA,
-    Smoking = NA,
-    Psychiatric = NA
-  )
+                            "More than $75 000")))
   
 table1_data %>%
   dplyr::select(
@@ -320,7 +188,7 @@ table1_data %>%
       shaps_score_pq1 = "Anhedonia", 
       otherdiag = "Other lifetime DSM-5 diagnosis",
       antidepmed = "Antidepressant medication",
-      mde_curr = "Current vs past MDD"
+      mde_curr = "Current MDD"
     ),
     value = list(
       sex_ps ~ "2",
@@ -391,6 +259,12 @@ missing_summary %>%
 
 
 ### Analysis Methods
+
+```{r}
+set.seed(2024)
+train_index <- sample(1:nrow(data), 0.7 * nrow(data))
+```
+
 
 ## \textcolor{orange}{RESULTS}
 
