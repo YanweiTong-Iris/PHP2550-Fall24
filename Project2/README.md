@@ -21,9 +21,9 @@ This xxxxx focused on the following aims:
 
 **`0-references.bib`**: the article bibliography for the main report.
 
-**`3-PHP2550-Project1Main.Rmd`**: the main EDA report Rmarkdown.
+**`3-PHP2550-Project2Main.Rmd`**: the main report Rmarkdown.
 
-**`3-PHP2550-Project1Main.pdf`**: the knitted report as .pdf.
+**`3-PHP2550-Project2Main.pdf`**: the knitted report as .pdf.
 
 ## Dependencies
 
