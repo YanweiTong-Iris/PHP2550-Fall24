@@ -76,5 +76,11 @@ test_predictors <- predictors[-train_index, ]
 train_predictors_dummy <- predictors_dummy[train_index, ]
 test_predictors_dummy <- predictors_dummy[-train_index, ]
 
+train_data_lasso = data.frame(tb = train_outcome, train_predictors_dummy)
+test_data_lasso = data.frame(tb = test_outcome, test_predictors_dummy)
 
+train_bestglm <- data.frame(train_predictors, tb = train_outcome)
+test_bestglm <- data.frame(test_predictors, tb = test_outcome)
+
+# Lasso
 

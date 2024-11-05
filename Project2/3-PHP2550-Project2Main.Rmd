@@ -58,11 +58,11 @@ data = read.csv(paste0(data_path, "/project2.csv"))
 data = data  %>%
   # create race variable
   mutate(race = factor(case_when(
-    NHW == 1 ~ "White",
+    NHW == 1 ~ "Non-Hispanic white",
     Black == 1 ~ "Black",
     Hisp == 1 ~ "Hispanic",
     TRUE ~ "Other"  # Handle cases where none of the above conditions are met
-  ), levels = c("White", "Black", "Hispanic", "Other"))) %>%
+  ), levels = c("Non-Hispanic white", "Black", "Hispanic", "Other"))) %>%
   # create treatment categories
   mutate(treatment_cat = factor(case_when(BA == 1 & Var == 0 ~ "BASC+placebo",
                                    BA == 0 & Var == 0 ~ "ST+placebo",
@@ -91,10 +91,14 @@ data = data  %>%
 
 ## \textcolor{orange}{INTRODUCTION}
 
+@hitsman2023efficacy
+
 ## \textcolor{orange}{METHODS}
 
 ### Data Overview
 
+\newpage
+\begin{landscape}
 ```{r}
 # for sub-tab purpose
 table1_data = data %>%
@@ -110,11 +114,11 @@ table1_data = data %>%
                             "Some college/technical school", 
                             "College graduate")),
     inc = factor(inc, levels = c(1, 2, 3, 4, 5),
-                 labels = c("Less than $20 000", 
-                            "$20 000–35 000", 
-                            "$35 001–50 000", 
-                            "$50 001–75 000", 
-                            "More than $75 000")))
+                 labels = c("Less than $20,000", 
+                            "$20,000–35,000", 
+                            "$35,001–50,000", 
+                            "$50,001–75,000", 
+                            "More than $75,000")))
   
 table1_data %>%
   dplyr::select(
@@ -171,24 +175,24 @@ table1_data %>%
     ),
     label = list(
       age_ps = "Age (years)",
-      sex_ps = "Sex ",
+      sex_ps = "Sex (female)",
       race = "Race",
       inc = "Income",
       edu = "Education",
       cpd_ps = "Cigarettes per day",
-      ftcd_score = "FTCD scoree",
-      ftcd.5.mins = "Smoking with 5 mins of waking up",
+      ftcd_score = "FTCD score",
+      ftcd.5.mins = "Smoking with 5 mins of waking up (Yes)",
       bdi_score_w00 = "BDI score",
       crv_total_pq1 = "Cigarette reward value",
-      hedonsum_n_pq1 = "Pleasurable Events Scale (substitute)",
-      hedonsum_y_pq1 = "Pleasurable Events Scale (complementary)",
-      Only.Menthol = "Exclusive Mentholated Cigarette User",
+      hedonsum_n_pq1 = "Pleasurable Events Scale (substitute reinforcers)",
+      hedonsum_y_pq1 = "Pleasurable Events Scale (complementary reinforcers)",
+      Only.Menthol = "Exclusive mentholated cigarette user (Yes)",
       readiness = "Readiness to quit smoking",
       NMR = "Nicotine Metabolism Ratio",
       shaps_score_pq1 = "Anhedonia", 
-      otherdiag = "Other lifetime DSM-5 diagnosis",
-      antidepmed = "Antidepressant medication",
-      mde_curr = "Current MDD"
+      otherdiag = "Other lifetime DSM-5 diagnosis (Yes)",
+      antidepmed = "Antidepressant medication (Yes)",
+      mde_curr = "Current MDD (Yes)"
     ),
     value = list(
       sex_ps ~ "2",
@@ -201,7 +205,8 @@ table1_data %>%
   ) %>%
   add_overall() %>%
   modify_header(label ~ "**Characteristic**") %>%
-  modify_caption(caption = "Participant characteristics by treatment arm and overall sample at baseline") %>%
+  modify_caption(caption = "Participant characteristics by overall sample and treatment arm") %>%
+  # for sub-tab purpose
   modify_table_body(
     ~ .x %>%
       mutate(across(everything(), ~ ifelse(. == "0 (NA%)", "", .)))
@@ -221,9 +226,12 @@ table1_data %>%
     position = "center",
     latex_options = c("striped", "repeat_header"),
     stripe_color = "gray!15",
-    font_size = 7
+    font_size = 8
   )
 ```
+
+\end{landscape}
+\newpage
 
 ```{r}
 # Missingness table
@@ -254,7 +262,7 @@ missing_summary <- missing_summary %>%
 missing_summary %>%
   arrange(desc(Pct)) %>%
   mutate(Pct = sprintf("%.2f%%", Pct)) %>%
-  kable(col.names = c("Variable", "Number", "Pct"), caption = "Summary of Missing Values")
+  kable(col.names = c("Variable", "Number", "Pct"), caption = "Summary of missing values")
 ```
 
 
@@ -277,7 +285,7 @@ train_index <- sample(1:nrow(data), 0.7 * nrow(data))
 Primary data were provided by Dr. George Papandonatos from the Department of Biostatistics at Brown University. The original data cannot be shared directly for privacy. Replication scripts are available at <https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project2>.
 
 # Reference
-
+<div id="refs"></div>
 
 
 \pagebreak
