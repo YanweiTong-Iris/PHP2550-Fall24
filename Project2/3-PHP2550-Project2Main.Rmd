@@ -58,11 +58,11 @@ data = read.csv(paste0(data_path, "/project2.csv"))
 data = data  %>%
   # create race variable
   mutate(race = factor(case_when(
-    NHW == 1 ~ "NHW",
+    NHW == 1 ~ "White",
     Black == 1 ~ "Black",
     Hisp == 1 ~ "Hispanic",
     TRUE ~ "Other"  # Handle cases where none of the above conditions are met
-  ), levels = c("NHW", "Black", "Hispanic", "Other"))) %>%
+  ), levels = c("White", "Black", "Hispanic", "Other"))) %>%
   # create treatment categories
   mutate(treatment_cat = factor(case_when(BA == 1 & Var == 0 ~ "BASC+placebo",
                                    BA == 0 & Var == 0 ~ "ST+placebo",
