@@ -1,10 +1,10 @@
 # model selection scratch code
 # Load necessary packages
 library(tidyverse)
-library(kableExtra)
-library(knitr)
 library(ggplot2)
 library(glmnet)
+library(bestglm)
+library(mice)
 library(pROC)
 library(MASS)
 
@@ -47,16 +47,22 @@ data = data  %>%
     .fns = as.numeric 
   ))
 
+# Perform MICE imputation
+data_mice <- mice(data, m = 5, method = "pmm", 
+                  maxit = 50, seed = 2024, printFlag = FALSE)
+
+# Complete the data by extracting one of the imputed datasets
+data_imp <- complete(data_mice, action = 1)
 
 
 # Define the outcome variable and predictors
-outcome <- data$abst
+outcome <- data_imp$abst
 predictor_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu", "race",
                      "ftcd_score", "ftcd.5.mins", "bdi_score_w00", "cpd_ps",
                      "crv_total_pq1", "hedonsum_n_pq1", "hedonsum_y_pq1",
                      "shaps_score_pq1", "otherdiag", "antidepmed", "mde_curr",
                      "NMR", "Only.Menthol", "readiness")
-predictors <- data[, predictor_names]
+predictors <- data_imp[, predictor_names]
 # for Lasso (to break down factors with >2 levels)
 predictors_dummy <- model.matrix(~ 0 + ., data = predictors)
 # remove the extra reference group
@@ -64,9 +70,9 @@ predictors_dummy <- predictors_dummy[, -which(colnames(predictors_dummy) =="Var0
 
 # Split into train and test
 set.seed(2024)
-train_index <- sample(1:nrow(data), 0.7 * nrow(data))
-train_data <- data[train_index,]
-test_data <- data[-train_index,]
+train_index <- sample(1:nrow(data_imp), 0.7 * nrow(data_imp))
+train_data <- data_imp[train_index,]
+test_data <- data_imp[-train_index,]
 train_outcome <- outcome[train_index]
 test_outcome <- outcome[-train_index]
 # for best subset
@@ -76,11 +82,17 @@ test_predictors <- predictors[-train_index, ]
 train_predictors_dummy <- predictors_dummy[train_index, ]
 test_predictors_dummy <- predictors_dummy[-train_index, ]
 
-train_data_lasso = data.frame(tb = train_outcome, train_predictors_dummy)
-test_data_lasso = data.frame(tb = test_outcome, test_predictors_dummy)
+train_data_glmnet = data.frame(abst = train_outcome, train_predictors_dummy)
+test_data_glmnet = data.frame(abst = test_outcome, test_predictors_dummy)
 
-train_bestglm <- data.frame(train_predictors, tb = train_outcome)
-test_bestglm <- data.frame(test_predictors, tb = test_outcome)
+train_bestglm <- data.frame(train_predictors, abst = train_outcome)
+test_bestglm <- data.frame(test_predictors, abst = test_outcome)
 
 # Lasso
+
+
+# Ridge
+
+
+# Best subset GLM
 

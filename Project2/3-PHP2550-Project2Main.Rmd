@@ -1,5 +1,5 @@
 ---
-title: ""
+title: "Smoking cessation in adults with major depressive disorder (MDD)"
 subtitle: "PHP2550 Project 2: A regression analysis"
 author: "Yanwei (Iris) Tong"
 date: "2024-10-10"
@@ -9,17 +9,22 @@ output:
     keep_tex: true
 link-citations: yes
 header-includes:
-   - "\\usepackage{xcolor}"
+  - "\\usepackage{xcolor}"
 abstract: |
-  **Purpose:** "to examine baseline variables as potential moderators of the effects of behavioral treatment on end-of-treatment (EOT) abstinence and evaluate baseline variables as predictors of abstinence, controlling for behavioral treatment and pharmacotherapy"
-  **Methods:** 
-  **Results and conclusion:** 
+  **Purpose:** "to examine baseline variables as potential moderators of the effects of behavioral treatment on end-of-treatment (EOT) abstinence and evaluate baseline variables as predictors of abstinence, controlling for behavioral treatment and pharmacotherapy"  
   
+  **Methods:**     
+  
+  **Results and conclusion:**     
+  
+
 geometry: margin=1in
 fontsize: 10.5pt
 csl: american-statistical-association.csl
 bibliography: 0-references.bib
 ---
+
+
 
 ```{r setup, include=FALSE}
 # Set up knit environment
@@ -40,6 +45,7 @@ library(patchwork)
 library(stargazer)
 library(knitcitations)
 library(mosaic)
+library(mice)
 library(summarytools)
 library(npreg)
 library(mgcv)
@@ -262,7 +268,41 @@ missing_summary <- missing_summary %>%
 missing_summary %>%
   arrange(desc(Pct)) %>%
   mutate(Pct = sprintf("%.2f%%", Pct)) %>%
-  kable(col.names = c("Variable", "Number", "Pct"), caption = "Summary of missing values")
+  kable(col.names = c("Variable", "Number", "Pct"), 
+        caption = "Summary of missing values")
+```
+
+
+```{r}
+# Perform MICE imputation
+data_mice <- mice(data, m = 5, method = "pmm", 
+                  maxit = 50, seed = 2024, printFlag = FALSE)
+
+# Complete the data by extracting one of the imputed datasets
+data_imp <- complete(data_mice, action = 1)
+```
+
+
+```{r}
+# Create and display the contingency table between race and menthol useage
+table_race_menthol <- table(data_imp$race, data_imp$Only.Menthol)
+
+# Perform the chi-square test
+chi_square_test <- chisq.test(table_race_menthol)
+
+chi_square_text <- paste0(
+  sprintf("Chi-Square Statistic: %.2f", chi_square_test$statistic),
+  ", ",
+  sprintf("p-value: %.4f", chi_square_test$p.value)
+)
+
+kable(table_race_menthol, 
+      caption = "Contingency Table of Race vs. Only Menthol Use with Chi-Square Test Result", 
+      col.names = c("Non-Menthol-Only", "Menthol-Only"),
+      row.names = TRUE) %>%
+   footnote(chi_square_text,
+            footnote_as_chunk = FALSE)
+
 ```
 
 

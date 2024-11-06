@@ -1,6 +1,6 @@
-# PHP2550 Project 1: An exploratory data analysis
+# PHP2550 Project 2: A regression data analysis
 
-## IMPACT OF WEATHER ON MARATHON PERFORMANCE ACROSS AGE AND GENDER
+## Smoking cessation in adults with major depressive disorder (MDD)
 
 ## Objectives
 
@@ -29,13 +29,13 @@ This xxxxx focused on the following aims:
 
 The following packages were used in this analysis:
 
-1)  Data extraction and manipulation: `tidyverse`
+1)  Data extraction and manipulation: `tidyverse`, `MASS`
 
 2)  Table formatting: `gt`, `gtsummary`, `knitr`, `kableExtra`
 
-3)  Data visualization: `ggplot2`, `patchwork`, `naniar`
+3)  Data visualization: `ggplot2`, `patchwork`, `naniar`, `pROC`
 
-4)  Statistical analyses: `npreg`, `mosaic`, `mgcv`
+4)  Statistical analyses: `mice`, `glmnet`, `bestglm`
 
 5)  Citations: `knitcitations`
 
