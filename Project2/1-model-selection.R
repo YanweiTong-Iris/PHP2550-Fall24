@@ -7,6 +7,10 @@ library(bestglm)
 library(mice)
 library(pROC)
 library(MASS)
+library(kableExtra)
+library(knitr)
+library(gtsummary)
+library(gt)
 
 
 # Define data path and import data
@@ -63,7 +67,7 @@ predictor_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu", "race",
                      "shaps_score_pq1", "otherdiag", "antidepmed", "mde_curr",
                      "NMR", "Only.Menthol", "readiness")
 predictors <- data_imp[, predictor_names]
-# for Lasso (to break down factors with >2 levels)
+# for Lasso and Ridge (to break down factors with >2 levels)
 predictors_dummy <- model.matrix(~ 0 + ., data = predictors)
 # remove the extra reference group
 predictors_dummy <- predictors_dummy[, -which(colnames(predictors_dummy) =="Var0")]
@@ -78,7 +82,7 @@ test_outcome <- outcome[-train_index]
 # for best subset
 train_predictors <- predictors[train_index, ]
 test_predictors <- predictors[-train_index, ]
-# for Lasso 
+# for Lasso and Ridge
 train_predictors_dummy <- predictors_dummy[train_index, ]
 test_predictors_dummy <- predictors_dummy[-train_index, ]
 
@@ -88,11 +92,91 @@ test_data_glmnet = data.frame(abst = test_outcome, test_predictors_dummy)
 train_bestglm <- data.frame(train_predictors, abst = train_outcome)
 test_bestglm <- data.frame(test_predictors, abst = test_outcome)
 
+# Enforce Var and BA as 0 penalty
 # Lasso
+# ^2 generates all pairwise interactions
+train_predictors_dummy_df <- as.data.frame(train_predictors_dummy)
+train_predictors_dummy_interactions <- model.matrix(~ .^2, data = train_predictors_dummy_df)
+
+# Step 2: Set penalty factors
+# Initialize penalty factors to 1 for all variables
+penalty_factors <- rep(1, ncol(train_predictors_dummy_interactions))
+
+# Identify columns corresponding exactly to "Var1" and "BA1" (not their interactions)
+var1_col <- grep("^Var1$", colnames(train_predictors_dummy_interactions))
+ba1_col <- grep("^BA1$", colnames(train_predictors_dummy_interactions))
+
+penalty_factors[c(var1_col, ba1_col)] <- 0
+names(penalty_factors) <- colnames(train_predictors_dummy_interactions)
+
+
+# Step 3: Fit the LASSO model with penalty factors
+lasso_model <- cv.glmnet(as.matrix(train_predictors_dummy_interactions), train_outcome,
+                         penalty.factor = penalty_factors,
+                         alpha = 1, family = "binomial")
+
+# Visualize the cross-validation results
+plot(lasso_model,
+     main = "") 
+
+mtext("Deviance vs. log(lambda)", side = 3, line = 2, cex = 1.2, font = 2)
+
+# Extract coefficients at the optimal lambda (best_lambda)
+best_lambda_lasso <- lasso_model$lambda.min
+#remove intercept
+optimal_coefs_lasso <- as.numeric(coef(lasso_model, s = best_lambda_lasso)[-1])
+coef_names_lasso <- rownames(coef(lasso_model, s = best_lambda_lasso))[-1]  
+
+result_table_lasso <- data.frame(
+  Predictor = coef_names_lasso,
+  Coefficient = optimal_coefs_lasso
+) %>%
+  filter(Coefficient != 0) 
+
+kable(result_table_lasso, 
+      caption = "Lasso Model Coefficientsc at Optimal Lambda")
 
 
 # Ridge
+ridge_model <- cv.glmnet(as.matrix(train_predictors_dummy_interactions), train_outcome,
+                         penalty.factor = penalty_factors,
+                         alpha = 0, family = "binomial")
+
+# Visualize the cross-validation results
+plot(ridge_model,
+     main = "") 
+
+mtext("Deviance vs. log(lambda)", side = 3, line = 2, cex = 1.2, font = 2)
+
+# Extract coefficients at the optimal lambda (best_lambda)
+best_lambda_ridge <- ridge_model$lambda.min
+#remove intercept
+optimal_coefs_ridge <- as.numeric(coef(ridge_model, s = best_lambda_ridge)[-1])
+coef_names_ridge <- rownames(coef(ridge_model, s = best_lambda_ridge))[-1]  
+
+result_table_ridge <- data.frame(
+  Predictor = coef_names_ridge,
+  Coefficient = optimal_coefs_ridge
+)
+
+kable(result_table_ridge, 
+      caption = "Ridge Model Coefficients at Optimal Lambda")
 
 
 # Best subset GLM
+enforced_variables <- c("Var", "BA")  # Variables you want to enforce
+
+# Create x.fixed matrix for enforced variables
+x.fixed <-train_bestglm[,enforced_variables, drop = FALSE]
+
+bestglm_model <- bestglm(
+  Xy = train_bestglm,
+  family = binomial,
+  IC = "BIC",               
+  nvmax = NULL,              
+  x.fixed = x.fixed          # Enforces Var1 and BA1 to be included in all models
+)
+
+# View the best model
+print(bestglm_model$BestModel)
 
