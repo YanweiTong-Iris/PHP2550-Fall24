@@ -658,9 +658,9 @@ ROC_stepwise = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
 num_cuts <- 10  # Number of bins for calibration
 
 calib_data <- data.frame(
-  prob = predicted_prob_logistic,  # predicted probabilities
+  prob = predicted_prob_stepwise,  # predicted probabilities
   # binning into `num_cuts` groups
-  bin = cut(predicted_prob_logistic, breaks = num_cuts),  
+  bin = cut(predicted_prob_stepwise, breaks = num_cuts),  
   # observed values (abst outcome in test data)
   class = as.numeric(test_outcome)-1  
 )
@@ -852,7 +852,7 @@ num_cuts <- 10  # Number of bins for calibration
 calib_data <- data.frame(
   prob = predicted_prob_best_subset,  # predicted probabilities
   # binning into `num_cuts` groups
-  bin = cut(predicted_prob_logistic, breaks = num_cuts),  
+  bin = cut(predicted_prob_best_subset, breaks = num_cuts),  
   # observed values (abst outcome in test data)
   class = as.numeric(test_outcome)-1  
 )
