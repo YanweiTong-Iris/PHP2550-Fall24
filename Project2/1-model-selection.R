@@ -180,3 +180,21 @@ bestglm_model <- bestglm(
 # View the best model
 print(bestglm_model$BestModel)
 
+best_model <- glmulti(
+  y = abst ~ Var + BA + .,  # Enforce both Var and BA in the formula
+  data = train_bestglm,
+  #xr = c("Var", "BA"),
+  intercept = F,
+  method = "h",           # Use exhaustive search
+  crit = "bic",
+  confsetsize = 3,        # Number of best models to keep in the confidence set
+  level = 2,
+  minsize = 5,
+  maxsize = 20,
+  family = binomial,
+  plotty = F,
+  report = T
+  #exclude = c("age_ps:sex_ps", "age_ps:inc", "age_ps:edu_merged")
+)
+summary(best_model)
+
