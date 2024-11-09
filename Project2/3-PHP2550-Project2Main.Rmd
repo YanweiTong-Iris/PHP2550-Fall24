@@ -339,7 +339,7 @@ kable(table_race_menthol,
 
 ### Moderator effects
 ```{r}
-# Logistic regression
+# Logistic regression with stepwise selection
 # Define the outcome and variables in the model
 outcome <- data_imp$abst
 variable_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu_merged", "race",
@@ -366,11 +366,7 @@ test_variables <- variables[-train_index, ]
 
 
 # Main effects for `Var` and `BA` (to be controlled in all models)
-main_effects <- paste(c("Var", "BA", "age_ps", "sex_ps", "inc", "edu_merged", "race",
-                        "ftcd_score", "ftcd.5.mins", "bdi_score_w00", "cpd_ps",
-                        "crv_total_pq1", "hedonsum_n_pq1", "hedonsum_y_pq1",
-                        "shaps_score_pq1", "otherdiag", "antidepmed", "mde_curr",
-                        "NMR", "Only.Menthol", "readiness"), collapse = " + ")
+main_effects <- paste(variable_names, collapse = " + ")
 
 # Define the interaction terms we want to consider
 interaction_terms <- paste(
@@ -402,117 +398,12 @@ logistic_model <- step(
   trace = 0
 )
 
-# Display the summary of the final model
-summary(logistic_model)
 ```
+
+
 
 ```{r}
-predicted_prob_logistic <- predict(logistic_model,
-                                newdata = test_data,
-                                type = "response")
-
-# Convert predictions to numeric if needed (glmnet returns a matrix)
-predicted_prob_logistic <- as.numeric(predicted_prob_logistic)
-
-# Plot ROC and calculate AUC
-# Generate ROC object
-roc_obj <- roc(test_outcome, predicted_prob_logistic)
-
-# Convert the ROC object to a data frame for ggplot2
-roc_data <- data.frame(
-  Specificity = rev(roc_obj$specificities),
-  Sensitivity = rev(roc_obj$sensitivities)
-)
-
-# Calculate the AUC
-auc_value <- auc(roc_obj)
-
-# Plot ROC curve with ggplot2
-ROC_logistic = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
-  geom_line(color = "black", size = 1) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
-  annotate("text", x = 0.8, y = 0.2, 
-           label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
-  labs(
-    title = "ROC for the Stepwise Model",
-    x = "1 - Specificity",
-    y = "Sensitivity"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5), 
-        plot.subtitle = element_text(hjust = 0.5))
-```
-
-```{r, fig.width = 12, fig.height = 4}
-num_cuts <- 10  # Number of bins for calibration
-
-calib_data <- data.frame(
-  prob = predicted_prob_logistic,  # predicted probabilities
-  # binning into `num_cuts` groups
-  bin = cut(predicted_prob_logistic, breaks = num_cuts),  
-  # observed values (abst outcome in test data)
-  class = as.numeric(test_outcome)-1  
-)
-
-calib_data <- calib_data %>%
-  group_by(bin) %>%
-  summarise(
-    observed = mean(class),  
-    predicted = mean(prob),  
-    se = sqrt(observed * (1 - observed) / n())  # Standard error
-  )
-
-# Add Loess Fit for Flexible Calibration Line
-loess_fit <- loess(observed ~ predicted, data = calib_data, span = 0.75)
-calib_data$loess_pred <- predict(loess_fit, calib_data$predicted)
-
-# Plot Calibration Curve with Error Bars
-calib_error_bar = ggplot(calib_data) + 
-  geom_abline(intercept = 0, slope = 1, color = "red") + 
-  geom_errorbar(aes(x = predicted, ymin = observed - 1.96 * se, 
-                    ymax = observed + 1.96 * se), 
-                colour="black", width=.01)+
-  geom_point(aes(x = predicted, y = observed)) +
-  labs(x = "Expected Probability of Smoking Abstinence", 
-       y = "Actual Smoking Abstinence") +
-  theme_minimal()
-
-
-# Plot Calibration Curve with Loess
-calib_data <- calib_data %>%
-  mutate(loess_ci_lower = loess_pred - 1.96 * sd(loess_pred),
-         loess_ci_upper = loess_pred + 1.96 * sd(loess_pred))
-
-calib_loess = ggplot(calib_data, aes(x = predicted, y = observed)) +
-  # Flexible calibration (Loess)
-  geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
-  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
-  geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
-  labs(x = "Predicted Probability of Smoking Abstinence", 
-       y = "Actual Smoking Abstinence") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5))
-
-
-shared_title <- textGrob("Calibration Plots for Stepwise Model with Error Bars and LOESS", 
-                         gp = gpar(fontsize = 14))
-
-calibration_plots <- arrangeGrob(
-  calib_error_bar, calib_loess,
-  ncol = 2,
-  top = shared_title
-)
-
-grid.arrange(
-  calibration_plots, ROC_logistic,
-  ncol = 2,
-  widths = c(2, 1)
-)
-
-```
-
-```{r}
-# for Lasso
+# for L0 + L1
 train_variables_dummy <- variables_dummy[train_index, ]
 test_variables_dummy <- variables_dummy[-train_index, ]
 
@@ -523,7 +414,7 @@ train_bestglm <- data.frame(train_variables, abst = train_outcome)
 test_bestglm <- data.frame(test_variables, abst = test_outcome)
 
 # Enforce Var and BA as 0 penalty
-# Lasso
+# Elastic Net
 # ^2 generates all pairwise interactions
 train_variables_dummy_df <- as.data.frame(train_variables_dummy)
 train_variables_dummy_full_interactions <- model.matrix(~ .^2, 
@@ -548,7 +439,7 @@ train_variables_dummy_include_names <- c(
   "BA1:age_ps", "BA1:sex_ps2", 
   "BA1:raceBlack", "BA1:raceHispanic",
   "BA1:raceOther", "BA1:ftcd_score", 
-  # Psychotherapy
+  # Pharmatherapy
   "Var1:mde_curr1",
   "Var1:age_ps", "Var1:sex_ps2",
   "Var1:raceBlack", "Var1:raceHispanic",
@@ -583,8 +474,10 @@ train_variables_dummy_include_names <- c(
   "NMR:readiness", "ftcd_score:NMR"
 )
 
-train_variables_dummy_include = train_variables_dummy_full_interactions[,train_variables_dummy_include_names]
-test_variables_dummy_include = test_variables_dummy_full_interactions[,train_variables_dummy_include_names]
+train_variables_dummy_include = 
+  train_variables_dummy_full_interactions[,train_variables_dummy_include_names]
+test_variables_dummy_include = 
+  test_variables_dummy_full_interactions[,train_variables_dummy_include_names]
 
 
 # Set penalty factors to enforce keeping Var and BA
@@ -598,130 +491,9 @@ ba1_col <- grep("^BA1$", colnames(train_variables_dummy_include))
 penalty_factors[c(var1_col, ba1_col)] <- 0
 names(penalty_factors) <- colnames(train_variables_dummy_include)
 
-# Fit lasso
-set.seed(2024)
-lasso_model <- cv.glmnet(as.matrix(train_variables_dummy_include), train_outcome,
-                         penalty.factor = penalty_factors,
-                         alpha = 1, family = "binomial")
-
-# Extract coefficients at the optimal lambda (best_lambda)
-best_lambda_lasso <- lasso_model$lambda.min
-#remove intercept
-optimal_coefs_lasso <- as.numeric(coef(lasso_model, s = best_lambda_lasso)[-1])
-coef_names_lasso <- rownames(coef(lasso_model, s = best_lambda_lasso))[-1]  
-
-result_table_lasso <- data.frame(
-  variable = coef_names_lasso,
-  Coefficient = optimal_coefs_lasso
-) %>%
-  filter(Coefficient != 0) 
-
-kable(result_table_lasso, 
-      caption = "Lasso Model Coefficientsc at Optimal Lambda")
 ```
 
-```{r}
-predicted_prob_lasso <- predict(lasso_model, 
-                                newx = as.matrix(test_variables_dummy_include), 
-                                s = "lambda.min", type = "response")
 
-# Convert predictions to numeric if needed (glmnet returns a matrix)
-predicted_prob_lasso <- as.numeric(predicted_prob_lasso)
-
-# Plot ROC curve and calculate AUC
-# Generate ROC object
-roc_obj <- roc(test_outcome, predicted_prob_lasso)
-
-# Convert the ROC object to a data frame for ggplot2
-roc_data <- data.frame(
-  Specificity = rev(roc_obj$specificities),
-  Sensitivity = rev(roc_obj$sensitivities)
-)
-
-# Calculate the AUC
-auc_value <- auc(roc_obj)
-
-# Plot ROC curve with ggplot2
-ROC_lasso = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
-  geom_line(color = "black", size = 1) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
-  annotate("text", x = 0.8, y = 0.2, label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
-  labs(
-    title = "ROC Curve for the Lasso Model",
-    x = "1 - Specificity",
-    y = "Sensitivity"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
-```
-
-```{r, fig.width = 12, fig.height = 4}
-num_cuts <- 10  # Number of bins for calibration
-
-calib_data <- data.frame(
-  prob = predicted_prob_lasso,  # predicted probabilities
-  # binning into `num_cuts` groups
-  bin = cut(predicted_prob_lasso, breaks = num_cuts),  
-  # observed values (abst outcome in test data)
-  class = as.numeric(test_outcome)-1  
-)
-
-calib_data <- calib_data %>%
-  group_by(bin) %>%
-  summarise(
-    observed = mean(class),  
-    predicted = mean(prob),  
-    se = sqrt(observed * (1 - observed) / n())  # Standard error
-  )
-
-# Add Loess Fit for Flexible Calibration Line
-loess_fit <- loess(observed ~ predicted, data = calib_data, span = 0.75)
-calib_data$loess_pred <- predict(loess_fit, calib_data$predicted)
-
-# Plot Calibration Curve with Error Bars
-calib_error_bar = ggplot(calib_data) + 
-  geom_abline(intercept = 0, slope = 1, color = "red") + 
-  geom_errorbar(aes(x = predicted, ymin = observed - 1.96 * se, 
-                    ymax = observed + 1.96 * se), 
-                colour="black", width=.01)+
-  geom_point(aes(x = predicted, y = observed)) +
-  labs(x = "Expected Probability of Smoking Abstinence", 
-       y = "Actual Smoking Abstinence") +
-  theme_minimal()
-
-
-# Plot Calibration Curve with Loess
-calib_data <- calib_data %>%
-  mutate(loess_ci_lower = loess_pred - 1.96 * sd(loess_pred),
-         loess_ci_upper = loess_pred + 1.96 * sd(loess_pred))
-
-calib_loess = ggplot(calib_data, aes(x = predicted, y = observed)) +
-  # Flexible calibration (Loess)
-  geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
-  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
-  geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
-  labs(x = "Predicted Probability of Smoking Abstinence", 
-       y = "Actual Smoking Abstinence") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5))
-
-
-shared_title <- textGrob("Calibration Plots for Loass Model with Error Bars and LOESS", 
-                         gp = gpar(fontsize = 14))
-
-calibration_plots <- arrangeGrob(
-  calib_error_bar, calib_loess,
-  ncol = 2,
-  top = shared_title
-)
-
-grid.arrange(
-  calibration_plots, ROC_lasso,
-  ncol = 2,
-  widths = c(2, 1)
-)
-
-```
 
 ```{r}
 # Fit Elastic Net
@@ -733,151 +505,19 @@ enet_model <- cv.glmnet(as.matrix(train_variables_dummy_include), train_outcome,
 # Extract coefficients at the optimal lambda (best_lambda)
 best_lambda_enet <- enet_model$lambda.min
 #remove intercept
-optimal_coefs_enet <- as.numeric(coef(enet_model, s = best_lambda_lasso)[-1])
-coef_names_enet <- rownames(coef(enet_model, s = best_lambda_lasso))[-1]  
+optimal_coefs_enet <- as.numeric(coef(enet_model, s = best_lambda_enet)[-1])
+coef_names_enet <- rownames(coef(enet_model, s = best_lambda_enet))[-1]  
 
 result_table_enet <- data.frame(
   variable = coef_names_enet,
   Coefficient = optimal_coefs_enet
 ) %>%
   filter(Coefficient != 0) 
-
-kable(result_table_enet, 
-      caption = "Elastic Net Model Coefficientsc at Optimal Lambda")
 ```
-
-```{r}
-predicted_prob_enet <- predict(enet_model, 
-                                newx = as.matrix(test_variables_dummy_include), 
-                                s = "lambda.min", type = "response")
-
-# Convert predictions to numeric if needed (glmnet returns a matrix)
-predicted_prob_enet <- as.numeric(predicted_prob_enet)
-
-# Plot ROC curve and calculate AUC
-# Generate ROC object
-roc_obj <- roc(test_outcome, predicted_prob_enet)
-
-# Convert the ROC object to a data frame for ggplot2
-roc_data <- data.frame(
-  Specificity = rev(roc_obj$specificities),
-  Sensitivity = rev(roc_obj$sensitivities)
-)
-
-# Calculate the AUC
-auc_value <- auc(roc_obj)
-
-# Plot ROC curve with ggplot2
-ROC_enet = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
-  geom_line(color = "black", size = 1) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
-  annotate("text", x = 0.8, y = 0.2, label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
-  labs(
-    title = "ROC Curve for the Elastic Net Model",
-    x = "1 - Specificity",
-    y = "Sensitivity"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
-```
-
-```{r, fig.width = 12, fig.height = 4}
-num_cuts <- 10  # Number of bins for calibration
-
-calib_data <- data.frame(
-  prob = predicted_prob_enet,  # predicted probabilities
-  # binning into `num_cuts` groups
-  bin = cut(predicted_prob_enet, breaks = num_cuts),  
-  # observed values (abst outcome in test data)
-  class = as.numeric(test_outcome)-1  
-)
-
-calib_data <- calib_data %>%
-  group_by(bin) %>%
-  summarise(
-    observed = mean(class),  
-    predicted = mean(prob),  
-    se = sqrt(observed * (1 - observed) / n())  # Standard error
-  )
-
-# Add Loess Fit for Flexible Calibration Line
-loess_fit <- loess(observed ~ predicted, data = calib_data, span = 0.75)
-calib_data$loess_pred <- predict(loess_fit, calib_data$predicted)
-
-# Plot Calibration Curve with Error Bars
-calib_error_bar = ggplot(calib_data) + 
-  geom_abline(intercept = 0, slope = 1, color = "red") + 
-  geom_errorbar(aes(x = predicted, ymin = observed - 1.96 * se, 
-                    ymax = observed + 1.96 * se), 
-                colour="black", width=.01)+
-  geom_point(aes(x = predicted, y = observed)) +
-  labs(x = "Expected Probability of Smoking Abstinence", 
-       y = "Actual Smoking Abstinence") +
-  #       title = "Calibration Plot for Elastic Net Model with Error Bars"
-  theme_minimal()
-
-
-# Plot Calibration Curve with Loess
-calib_data <- calib_data %>%
-  mutate(loess_ci_lower = loess_pred - 1.96 * sd(loess_pred),
-         loess_ci_upper = loess_pred + 1.96 * sd(loess_pred))
-
-calib_loess = ggplot(calib_data, aes(x = predicted, y = observed)) +
-  # Flexible calibration (Loess)
-  geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
-  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
-  geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
-  scale_color_manual(values = c("Ideal" = "red", 
-                                "Flexible calibration" = "blue")) +
-  scale_linetype_manual(values = c("Ideal" = "solid", 
-                                   "Flexible calibration" = "dashed")) +
-  labs(x = "Predicted Probability of Smoking Abstinence", 
-       y = "Actual Smoking Abstinence",
-       color = "Legend", linetype = "Legend") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5)) 
-
-
-shared_title <- textGrob("Calibration Plots for Elastic Net Model with Error Bars and LOESS", 
-                         gp = gpar(fontsize = 14))
-
-calibration_plots <- arrangeGrob(
-  calib_error_bar, calib_loess,
-  ncol = 2,
-  top = shared_title
-)
-
-grid.arrange(
-  calibration_plots, ROC_enet,
-  ncol = 2,
-  widths = c(2, 1)
-)
-
-```
-
-```{r}
-# train_bestglm = data.frame(train_variables_dummy_include, abst = train_outcome)
-# enforced_variables <- c("Var1", "BA1")  # Variables you want to enforce
-# 
-# # Create x.fixed matrix for enforced variables
-# x.fixed <-train_bestglm[,enforced_variables, drop = FALSE]
-# 
-# bestglm_model <- bestglm(
-#   Xy = train_bestglm,
-#   family = binomial,
-#   IC = "BIC",               
-#   nvmax = NULL              
-#   #x.fixed = x.fixed          # Enforces Var1 and BA1 to be included in all models
-# )
-# 
-# # View the best model
-# print(bestglm_model$BestModel)
-```
-
-
 
 
 ```{r}
+set.seed(2024)
 regsubsets_model <-
     regsubsets(y = train_outcome,
                x = train_variables_dummy_include,
@@ -892,9 +532,8 @@ reg_summary = summary(regsubsets_model)
 cp_min = which.min(reg_summary$cp)
 best_subset_coefs = coef(regsubsets_model, cp_min)
 best_subset_names = names(coef(regsubsets_model, cp_min))
-
-
 ```
+
 
 
 ```{r}
@@ -930,11 +569,472 @@ combined_df[is.na(combined_df)] <- " "
 colnames(combined_df) <- gsub("Best.Subset", "Best Subset", colnames(combined_df))
 
 # Display the final combined table
-kable(combined_df, 
+kable(combined_df, row.names = F,
       caption = "Summary of Coefficients for Moderator Effects across 3 Selection Methods")
 ```
 
+```{r}
+predicted_prob_logistic <- predict(logistic_model,
+                                newdata = test_data,
+                                type = "response")
+
+# Convert predictions to numeric if needed (glmnet returns a matrix)
+predicted_prob_logistic <- as.numeric(predicted_prob_logistic)
+
+# Plot ROC and calculate AUC
+# Generate ROC object
+roc_obj <- roc(test_outcome, predicted_prob_logistic)
+
+# Convert the ROC object to a data frame for ggplot2
+roc_data <- data.frame(
+  Specificity = rev(roc_obj$specificities),
+  Sensitivity = rev(roc_obj$sensitivities)
+)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+
+# Plot ROC curve with ggplot2
+ROC_stepwise = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
+  geom_line(color = "black", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  annotate("text", x = 0.8, y = 0.2, 
+           label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
+  labs(
+    x = "1 - Specificity",
+    y = "Sensitivity"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r, fig.width = 12, fig.height = 4}
+num_cuts <- 10  # Number of bins for calibration
+
+calib_data <- data.frame(
+  prob = predicted_prob_logistic,  # predicted probabilities
+  # binning into `num_cuts` groups
+  bin = cut(predicted_prob_logistic, breaks = num_cuts),  
+  # observed values (abst outcome in test data)
+  class = as.numeric(test_outcome)-1  
+)
+
+calib_data <- calib_data %>%
+  group_by(bin) %>%
+  summarise(
+    observed = mean(class),  
+    predicted = mean(prob),  
+    se = sqrt(observed * (1 - observed) / n())  # Standard error
+  )
+
+# Add Loess Fit for Flexible Calibration Line
+loess_fit <- loess(observed ~ predicted, data = calib_data, span = 0.75)
+calib_data$loess_pred <- predict(loess_fit, calib_data$predicted)
+
+# Plot Calibration Curve with Error Bars
+calib_error_bar_stepwise = ggplot(calib_data) + 
+  geom_abline(intercept = 0, slope = 1, color = "red") + 
+  geom_errorbar(aes(x = predicted, ymin = observed - 1.96 * se, 
+                    ymax = observed + 1.96 * se), 
+                colour="black", width=.01)+
+  geom_point(aes(x = predicted, y = observed)) +
+  labs(x = "Expected Probability of Smoking Abstinence", 
+       y = "Actual Smoking Abstinence") +
+  theme_minimal()
+
+
+# Plot Calibration Curve with Loess
+calib_data <- calib_data %>%
+  mutate(loess_ci_lower = loess_pred - 1.96 * sd(loess_pred),
+         loess_ci_upper = loess_pred + 1.96 * sd(loess_pred))
+
+calib_loess_stepwise = ggplot(calib_data, aes(x = predicted, y = observed)) +
+  # Flexible calibration (Loess)
+  geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
+  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
+  geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
+  labs(x = "Predicted Probability of Smoking Abstinence", 
+       y = "Actual Smoking Abstinence") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+predicted_prob_enet <- predict(enet_model, 
+                                newx = as.matrix(test_variables_dummy_include), 
+                                s = "lambda.min", type = "response")
+
+# Convert predictions to numeric if needed (glmnet returns a matrix)
+predicted_prob_enet <- as.numeric(predicted_prob_enet)
+
+# Plot ROC curve and calculate AUC
+# Generate ROC object
+roc_obj <- roc(test_outcome, predicted_prob_enet)
+
+# Convert the ROC object to a data frame for ggplot2
+roc_data <- data.frame(
+  Specificity = rev(roc_obj$specificities),
+  Sensitivity = rev(roc_obj$sensitivities)
+)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+
+# Plot ROC curve with ggplot2
+ROC_enet = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
+  geom_line(color = "black", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  annotate("text", x = 0.8, y = 0.2, label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
+  labs(
+    x = "1 - Specificity",
+    y = "Sensitivity"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r, fig.width = 12, fig.height = 4}
+num_cuts <- 10  # Number of bins for calibration
+
+calib_data <- data.frame(
+  prob = predicted_prob_enet,  # predicted probabilities
+  # binning into `num_cuts` groups
+  bin = cut(predicted_prob_enet, breaks = num_cuts),  
+  # observed values (abst outcome in test data)
+  class = as.numeric(test_outcome)-1  
+)
+
+calib_data <- calib_data %>%
+  group_by(bin) %>%
+  summarise(
+    observed = mean(class),  
+    predicted = mean(prob),  
+    se = sqrt(observed * (1 - observed) / n())  # Standard error
+  )
+
+# Add Loess Fit for Flexible Calibration Line
+loess_fit <- loess(observed ~ predicted, data = calib_data, span = 0.75)
+calib_data$loess_pred <- predict(loess_fit, calib_data$predicted)
+
+# Plot Calibration Curve with Error Bars
+calib_error_bar_enet = ggplot(calib_data) + 
+  geom_abline(intercept = 0, slope = 1, color = "red") + 
+  geom_errorbar(aes(x = predicted, ymin = observed - 1.96 * se, 
+                    ymax = observed + 1.96 * se), 
+                colour="black", width=.01)+
+  geom_point(aes(x = predicted, y = observed)) +
+  labs(x = "Expected Probability of Smoking Abstinence", 
+       y = "Actual Smoking Abstinence") +
+  #       title = "Calibration Plot for Elastic Net Model with Error Bars"
+  theme_minimal()
+
+
+# Plot Calibration Curve with Loess
+calib_data <- calib_data %>%
+  mutate(loess_ci_lower = loess_pred - 1.96 * sd(loess_pred),
+         loess_ci_upper = loess_pred + 1.96 * sd(loess_pred))
+
+calib_loess_enet = ggplot(calib_data, aes(x = predicted, y = observed)) +
+  # Flexible calibration (Loess)
+  geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
+  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
+  geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
+  scale_color_manual(values = c("Ideal" = "red", 
+                                "Flexible calibration" = "blue")) +
+  scale_linetype_manual(values = c("Ideal" = "solid", 
+                                   "Flexible calibration" = "dashed")) +
+  labs(x = "Predicted Probability of Smoking Abstinence", 
+       y = "Actual Smoking Abstinence",
+       color = "Legend", linetype = "Legend") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+```{r}
+predict_best_subset <- function(test_data = test_variables_dummy_include, 
+                                best_subset_coefs) {
+  intercept <- best_subset_coefs[1]
+  selected_vars <- names(best_subset_coefs)[-1] 
+  
+  test_subset <- test_data[, selected_vars, drop = FALSE]  
+  
+  # Calculate predictions by multiplying test data with coefficients
+  # Matrix multiplication for predictors + intercept
+  predictions <- intercept + as.matrix(test_subset) %*% best_subset_coefs[selected_vars]
+  
+  return(predictions)
+}
+
+predicted_prob_best_subset <- predict_best_subset(test_data = test_variables_dummy_include, 
+                                   best_subset_coefs)
+# Convert predictions to numeric 
+predicted_prob_best_subset <- as.numeric(predicted_prob_best_subset) -1
+
+# Plot ROC and calculate AUC
+# Generate ROC object
+roc_obj <- roc(test_outcome, predicted_prob_best_subset)
+
+# Convert the ROC object to a data frame for ggplot2
+roc_data <- data.frame(
+  Specificity = rev(roc_obj$specificities),
+  Sensitivity = rev(roc_obj$sensitivities)
+)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+
+# Plot ROC curve with ggplot2
+ROC_best_subset = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
+  geom_line(color = "black", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  annotate("text", x = 0.8, y = 0.2, 
+           label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
+  labs(
+    x = "1 - Specificity",
+    y = "Sensitivity"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r, fig.width = 12, fig.height = 4}
+num_cuts <- 10  # Number of bins for calibration
+
+calib_data <- data.frame(
+  prob = predicted_prob_best_subset,  # predicted probabilities
+  # binning into `num_cuts` groups
+  bin = cut(predicted_prob_logistic, breaks = num_cuts),  
+  # observed values (abst outcome in test data)
+  class = as.numeric(test_outcome)-1  
+)
+
+calib_data <- calib_data %>%
+  group_by(bin) %>%
+  summarise(
+    observed = mean(class),  
+    predicted = mean(prob),  
+    se = sqrt(observed * (1 - observed) / n())  # Standard error
+  )
+
+# Add Loess Fit for Flexible Calibration Line
+loess_fit <- loess(observed ~ predicted, data = calib_data, span = 0.75)
+calib_data$loess_pred <- predict(loess_fit, calib_data$predicted)
+
+# Plot Calibration Curve with Error Bars
+calib_error_bar_best_subset = ggplot(calib_data) + 
+  geom_abline(intercept = 0, slope = 1, color = "red") + 
+  geom_errorbar(aes(x = predicted, ymin = observed - 1.96 * se, 
+                    ymax = observed + 1.96 * se), 
+                colour="black", width=.01)+
+  geom_point(aes(x = predicted, y = observed)) +
+  labs(x = "Expected Probability of Smoking Abstinence", 
+       y = "Actual Smoking Abstinence") +
+  theme_minimal()
+
+
+# Plot Calibration Curve with Loess
+calib_data <- calib_data %>%
+  mutate(loess_ci_lower = loess_pred - 1.96 * sd(loess_pred),
+         loess_ci_upper = loess_pred + 1.96 * sd(loess_pred))
+
+calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
+  # Flexible calibration (Loess)
+  geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
+  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
+  geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
+  labs(x = "Predicted Probability of Smoking Abstinence", 
+       y = "Actual Smoking Abstinence") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r, fig.width = 10, fig.height = 10}
+plots_stepwise = arrangeGrob(
+  calib_error_bar_stepwise, calib_loess_stepwise, ROC_stepwise,
+  ncol = 3,
+  top = textGrob("Stepwise Selection",
+                 gp = gpar(fontface = "bold", fontsize = 13)
+))
+
+plots_enet = arrangeGrob(
+  calib_error_bar_enet, calib_loess_enet, ROC_enet,
+  ncol = 3,
+  top = textGrob("Elastic Net",
+                 gp = gpar(fontface = "bold", fontsize = 13)
+))
+
+plots_best_subset = arrangeGrob(
+  calib_error_bar_best_subset, calib_loess_best_subset, ROC_best_subset,
+  ncol = 3,
+  top = textGrob("Best Subset Selection", 
+                 gp = gpar(fontface = "bold", fontsize = 13)
+))
+
+# Bold the main title
+main_title <- textGrob(
+  "Figure 1: Calibration Plots with Error Bars and LOESS and ROC Curves for 3 Selection Models",
+  gp = gpar(fontsize = 16) 
+)
+
+# Arrange everything with the bold title
+grid.arrange(
+  plots_stepwise,
+  plots_enet,
+  plots_best_subset,
+  nrow = 3,
+  top = main_title
+)
+```
+
+
 ### Predictor Effects
+```{r}
+predictor_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu_merged", "race",
+                     "ftcd_score", "ftcd.5.mins", "bdi_score_w00", "cpd_ps",
+                     "crv_total_pq1", "hedonsum_n_pq1", "hedonsum_y_pq1",
+                     "shaps_score_pq1", "otherdiag", "antidepmed", "mde_curr",
+                     "NMR", "Only.Menthol", "readiness")
+predictors <- data_imp[, predictor_names]
+# for Lasso (to break down factors with >2 levels)
+predictors_dummy <- model.matrix(~ 0 + ., data = predictors)
+# remove the extra reference group
+predictors_dummy <- predictors_dummy[, -which(colnames(predictors_dummy) =="Var0")]
+
+
+# Full formula for main effects and interactions
+full_formula <- as.formula(paste("abst ~", main_effects))
+
+# Define scope with `Var` and `BA` as forced terms in the main model
+scope_list <- list(
+  lower = as.formula("abst ~ Var + BA"),  # Minimal model with controlled terms
+  upper = full_formula                    # Full model with all main terms
+)
+
+# Fit logistic regression model with stepwise selection
+set.seed(2024)
+predictor_logistic_model <- step(
+  glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
+  scope = scope_list,
+  direction = "both",
+  trace = 0
+)
+```
+
+```{r}
+# Fit Elastic Net
+# To identify the potential interaction terms for moderator effects
+train_predictors_dummy_include_names <- c(
+  "Var1", "BA1", "age_ps", "sex_ps2", "inc2", "inc3",
+  "inc4", "inc5", "edu_merged2", "edu_merged3",
+  "raceBlack", "raceHispanic", "raceOther",
+  "ftcd_score", "ftcd.5.mins1", "bdi_score_w00", "cpd_ps",
+  "crv_total_pq1", "hedonsum_n_pq1", "hedonsum_y_pq1",
+  "shaps_score_pq1", "otherdiag1", "antidepmed1",
+  "mde_curr1", "NMR", "Only.Menthol1",
+  "readiness"
+)
+
+train_predictors_dummy <- predictors_dummy[train_index, ]
+test_predictors_dummy <- predictors_dummy[-train_index, ]
+
+train_predictors_dummy_include = 
+  train_predictors_dummy[,train_predictors_dummy_include_names]
+test_predictors_dummy_include = 
+  test_variables_dummy[,train_predictors_dummy_include_names]
+
+# Set penalty factors to enforce keeping Var and BA
+# Initialize penalty factors to 1 for all variables
+penalty_factors <- rep(1, ncol(train_predictors_dummy_include))
+
+# Identify columns corresponding exactly to "Var1" and "BA1" (not their interactions)
+var1_col <- grep("^Var1$", colnames(train_predictors_dummy_include))
+ba1_col <- grep("^BA1$", colnames(train_predictors_dummy_include))
+
+penalty_factors[c(var1_col, ba1_col)] <- 0
+names(penalty_factors) <- colnames(train_predictors_dummy_include)
+
+
+set.seed(2024)
+predictor_enet_model <- cv.glmnet(as.matrix(train_predictors_dummy_include), 
+                                  train_outcome,
+                         penalty.factor = penalty_factors,
+                         alpha = 0.5, family = "binomial")
+
+# Extract coefficients at the optimal lambda (best_lambda)
+best_lambda_enet <- predictor_enet_model$lambda.min
+#remove intercept
+optimal_coefs_enet <- as.numeric(coef(predictor_enet_model, s = best_lambda_enet)[-1])
+coef_names_enet <- rownames(coef(predictor_enet_model, s = best_lambda_enet))[-1]
+
+predictor_result_table_enet <- data.frame(
+  variable = coef_names_enet,
+  Coefficient = optimal_coefs_enet
+) %>%
+  filter(Coefficient != 0)
+```
+
+```{r}
+set.seed(2024)
+predictor_regsubsets_model <-
+    regsubsets(y = train_outcome,
+               x = train_predictors_dummy_include,
+               nbest = 1,       # 1 best model for each number of predictors
+               nvmax = 20,    
+               force.in = c("Var1", "BA1"),
+               force.out = NULL,
+               really.big = T,
+               method = "exhaustive")
+
+predictor_reg_summary = summary(predictor_regsubsets_model)
+cp_min = which.min(reg_summary$cp)
+predictor_best_subset_coefs = coef(predictor_regsubsets_model, cp_min)
+predictor_best_subset_names = names(coef(predictor_regsubsets_model, cp_min))
+
+```
+
+
+```{r}
+# Summary table of coef
+# Stepwise coefficients
+stepwise_coefs <- coef(predictor_logistic_model)
+stepwise_df <- data.frame(
+  variable = names(stepwise_coefs),
+  `Stepwise` = as.numeric(stepwise_coefs)
+)
+
+# ENET coefficients 
+enet_df <- predictor_result_table_enet %>%
+  rename(`Elastic Net` = Coefficient)
+
+# Best subset coefficients
+best_subset_df <- data.frame(
+  variable = names(predictor_best_subset_coefs),
+  `Best Subset` = as.numeric(predictor_best_subset_coefs)
+)
+
+# Merge all into one table based on variable names
+combined_df <- full_join(stepwise_df, enet_df, by = "variable") %>%
+  full_join(best_subset_df, by = "variable") %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4)))
+
+# Remove the intercept row
+combined_df <- combined_df[combined_df$variable != "(Intercept)", ]
+
+# Replace NA values with an empty space
+combined_df[is.na(combined_df)] <- " "
+
+colnames(combined_df) <- gsub("Best.Subset", "Best Subset", colnames(combined_df))
+
+# Display the final combined table
+kable(combined_df, row.names = F,
+      caption = "Summary of Coefficients for Predictor Effects across 3 Selection Methods")
+```
+
 
 ## \textcolor{orange}{CONCLUSION}
 
