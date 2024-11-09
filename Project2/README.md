@@ -17,7 +17,7 @@ This xxxxx focused on the following aims:
 
 ## Directory Structure
 
-**`american-statistical-association.csl`**: ASA citation style language file for citation formatting in the report file.
+**`0-american-statistical-association.csl`**: ASA citation style language file for citation formatting in the report file.
 
 **`0-references.bib`**: the article bibliography for the main report.
 
@@ -29,13 +29,13 @@ This xxxxx focused on the following aims:
 
 The following packages were used in this analysis:
 
-1)  Data extraction and manipulation: `tidyverse`, `MASS`
+1)  Data extraction, manipulation, and imputation: `tidyverse`, `MASS`, `mice`
 
 2)  Table formatting: `gt`, `gtsummary`, `knitr`, `kableExtra`
 
-3)  Data visualization: `ggplot2`, `patchwork`, `naniar`, `pROC`
+3)  Data visualization: `ggplot2`, `patchwork`, `grid`, `gridExtra`, `naniar`, `pROC`
 
-4)  Statistical analyses: `mice`, `glmnet`, `bestglm`
+4)  Statistical analyses: `glmnet`, `bestglm`, `leaps`
 
 5)  Citations: `knitcitations`
 

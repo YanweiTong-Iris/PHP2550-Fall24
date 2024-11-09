@@ -20,7 +20,7 @@ abstract: |
 
 geometry: margin=1in
 fontsize: 10.5pt
-csl: american-statistical-association.csl
+csl: 0-american-statistical-association.csl
 bibliography: 0-references.bib
 ---
 
@@ -533,14 +533,17 @@ result_table_enet <- data.frame(
 ```{r}
 set.seed(2024)
 regsubsets_model <-
-    regsubsets(y = train_outcome,
-               x = train_variables_dummy_include,
-               nbest = 1,       # 1 best model for each number of predictors
-               nvmax = 20,    
-               force.in = c("Var1", "BA1"),
-               force.out = NULL,
-               really.big = T,
-               method = "seqrep")
+    regsubsets(
+      y = train_outcome,
+      x = train_variables_dummy_include,
+      nbest = 1,
+      # 1 best model for each number of predictors
+      nvmax = 20,
+      force.in = c("Var1", "BA1"),
+      force.out = NULL,
+      really.big = TRUE,
+      method = "seqrep"
+    )
 
 reg_summary = summary(regsubsets_model)
 cp_min = which.min(reg_summary$cp)
@@ -654,7 +657,7 @@ ROC_stepwise = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
-```{r, fig.width = 12, fig.height = 4}
+```{r}
 num_cuts <- 10  # Number of bins for calibration
 
 calib_data <- data.frame(
@@ -898,7 +901,7 @@ calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
 
 ```
 
-```{r, fig.width = 8, fig.height = 8}
+```{r, fig.width = 10, fig.height = 10}
 plots_stepwise = arrangeGrob(
   calib_error_bar_stepwise, calib_loess_stepwise, ROC_stepwise,
   ncol = 3,
@@ -947,9 +950,9 @@ brier_best_subset <- mean((predicted_prob_best_subset - test_outcome_numeric)^2)
 
 # calibration error
 ce_calculate <- function(predictions, actuals, n_bins = 10) {
-  bins <- cut(predictions, breaks = seq(0, 1, length.out = n_bins + 1), include.lowest = TRUE)
+  bins <- cut(predictions, breaks = seq(0, 1, length.out = n_bins + 1), 
+              include.lowest = TRUE)
   bin_means <- tapply(predictions, bins, mean)
-  print(bin_means)
   bin_actuals <- tapply(actuals, bins, mean)
   bin_weights <- table(bins) / length(predictions)
   ce <- sum(bin_weights * abs(bin_means - bin_actuals))
@@ -1001,7 +1004,7 @@ sensitivity_best_subset <- as.numeric(coords(roc_best_subset, "best",
 # Combine metrics into a table
 df_performance <- rbind(
   Brier = round(c(brier_stepwise, brier_enet, brier_best_subset), 4),
-  `Calibration error` = round(c(ce_stepwise, ce_enet, ce_best_subset), 4),
+  `Calibration error` = round(c(CE_stepwise, CE_enet, CE_best_subset), 4),
   AUC = round(c(auc_stepwise, auc_enet, auc_best_subset), 4),
   Threshold = round(c(threshold_stepwise, threshold_enet, threshold_best_subset), 4),
   Specificity = round(c(specificity_stepwise, specificity_enet, specificity_best_subset), 4),
@@ -1158,6 +1161,13 @@ combined_df <- combined_df[combined_df$variable != "(Intercept)", ]
 combined_df[is.na(combined_df)] <- " "
 
 colnames(combined_df) <- gsub("Best.Subset", "Best Subset", colnames(combined_df))
+
+# enforce predictor print-out order
+combined_df <- combined_df %>%
+  arrange(
+    factor(variable, levels = c("BA1", "Var1")),  # Keep BA1 and Var1 at the top
+    variable                                      # Sort the rest alphabetically
+  )
 
 # Display the final combined table
 kable(combined_df, row.names = F,
