@@ -716,7 +716,7 @@ predicted_prob_enet <- as.numeric(predicted_prob_enet)
 
 # Plot ROC curve and calculate AUC
 # Generate ROC object
-roc_enet <- roc(test_outcome_numeric, predicted_prob_enet)
+roc_enet <- roc(test_outcome, predicted_prob_enet)
 
 # Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
