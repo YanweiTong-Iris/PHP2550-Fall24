@@ -27,6 +27,9 @@ bibliography: 0-references.bib
 
 
 ```{r setup, include=FALSE}
+# to prevent scientific notation
+options(scipen=999)
+
 # Set up knit environment
 knitr::opts_chunk$set(echo = FALSE, 
                       message = FALSE, 
@@ -107,7 +110,7 @@ Fagerstrom Test for Cigarette Dependence
 
 ## \textcolor{orange}{METHODS}
 
-### Data Overview
+### Data Overview and Imputation
 
 \newpage
 \begin{landscape}
@@ -289,19 +292,11 @@ data <- data %>%
 
 ```
 
-```{r}
-# Perform MICE imputation
-data_mice <- mice(data, m = 5, method = "pmm", 
-                  maxit = 50, seed = 2024, printFlag = FALSE)
-
-# Complete the data by extracting one of the imputed datasets
-data_imp <- complete(data_mice, action = 1) 
-```
 
 
 ```{r}
 # Create and display the contingency table between race and menthol useage
-table_race_menthol <- table(data_imp$race, data_imp$Only.Menthol)
+table_race_menthol <- table(data$race, data$Only.Menthol)
 
 # Perform the chi-square test
 chi_square_test <- chisq.test(table_race_menthol)
@@ -321,7 +316,14 @@ kable(table_race_menthol,
 ```
 
 
+```{r}
+# Perform MICE imputation
+data_mice <- mice(data, m = 5, method = "pmm", 
+                  maxit = 50, seed = 2024, printFlag = FALSE)
 
+# Complete the data by extracting one of the imputed datasets
+data_imp <- complete(data_mice, action = 1) 
+```
 
 
 ### Analysis Methods
@@ -337,7 +339,7 @@ kable(table_race_menthol,
 
 ## \textcolor{orange}{RESULTS}
 
-### Moderator effects
+### Baseline Characteristics as Potential Moderators 
 ```{r}
 # Logistic regression with stepwise selection
 # Define the outcome and variables in the model
@@ -365,23 +367,40 @@ train_variables <- variables[train_index, ]
 test_variables <- variables[-train_index, ]
 
 
-# Main effects for `Var` and `BA` (to be controlled in all models)
+# Main effects for `Var` and `BA` (to be considered/controlled in all models)
 main_effects <- paste(variable_names, collapse = " + ")
 
 # Define the interaction terms we want to consider
-interaction_terms <- paste(
-  "BA:mde_curr + BA:age_ps + BA:sex_ps + BA:race + BA:ftcd_score + BA:cpd_ps",
+BA_interaction_terms <- 
+  paste("BA:Var", #interaction between treatments
+        #interaction with demographics
+        "BA:age_ps + BA:sex_ps + BA:inc+ BA:edu_merged + BA:race",
+        # with smoking
+        "BA:ftcd_score + BA:Only.Menthol + BA:NMR+ BA:readiness",
+        # with MDD
+        "BA:mde_curr + BA:bdi_score_w00 + BA:shaps_score_pq1 + BA:antidepmed",
+        "BA:otherdiag + BA:shaps_score_pq1",
+        sep = " + ")
+
+other_interaction_terms <- paste(
+  # pharmatherapy with demographics
   "Var:age_ps + Var:sex_ps + Var:race + Var:ftcd_score + Var:cpd_ps",
-  "inc:edu_merged + antidepmed:readiness + Only.Menthol:readiness + mde_curr:readiness",
-  "ftcd.5.mins:readiness + bdi_score_w00:readiness + Var:shaps_score_pq1 + BA:shaps_score_pq1",
-  "shaps_score_pq1:mde_curr + sex_ps:ftcd_score + race:ftcd_score + age_ps:ftcd_score",
+  # between demographics
+  "inc:edu_merged",
+  # Menthol exclusive with demographics
   "sex_ps:Only.Menthol + race:Only.Menthol + inc:Only.Menthol + edu_merged:Only.Menthol",
+  # NMR with demographics, cigarette dependence, and readiness to quit
   "sex_ps:NMR + age_ps:NMR + cpd_ps:NMR + NMR:readiness + ftcd_score:NMR",
+  # readiness to quit with cigarette dependence and MDD
+  "ftcd_score:readiness + Only.Menthol:readiness + mde_curr:readiness ",
+  # cigarette dependence with demographics
+  "sex_ps:ftcd_score + race:ftcd_score + age_ps:ftcd_score",
   sep = " + "
 )
 
 # Full formula for main effects and interactions
-full_formula <- as.formula(paste("abst ~", main_effects, "+", interaction_terms))
+full_formula <- as.formula(paste("abst ~", main_effects, "+", BA_interaction_terms,
+                                 "+", other_interaction_terms))
 
 # Define scope with `Var` and `BA` as forced terms in the main model
 scope_list <- list(
@@ -391,7 +410,7 @@ scope_list <- list(
 
 # Fit logistic regression model with stepwise selection
 set.seed(2024)
-logistic_model <- step(
+stepwise_model <- step(
   glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
   scope = scope_list,
   direction = "both",
@@ -434,31 +453,28 @@ train_variables_dummy_include_names <- c(
   "shaps_score_pq1", "otherdiag1", "antidepmed1",                  
   "mde_curr1", "NMR", "Only.Menthol1",                 
   "readiness", "Var1:BA1", 
-  #Behavioral treatment
+  #Behavioral treatment (MAIN)
   "BA1:mde_curr1", 
   "BA1:age_ps", "BA1:sex_ps2", 
   "BA1:raceBlack", "BA1:raceHispanic",
   "BA1:raceOther", "BA1:ftcd_score", 
+  "BA1:shaps_score_pq1","BA1:bdi_score_w00", 
+  "BA1:otherdiag1", "BA1:antidepmed1",
+  "BA1:mde_curr1","BA1:NMR",
+  "BA1:Only.Menthol1", "BA1:readiness",
   # Pharmatherapy
   "Var1:mde_curr1",
   "Var1:age_ps", "Var1:sex_ps2",
   "Var1:raceBlack", "Var1:raceHispanic",
   "Var1:raceOther", "Var1:ftcd_score", 
   # Income*Edu
-   "inc2:edu_merged2", "inc2:edu_merged3", 
+  "inc2:edu_merged2", "inc2:edu_merged3", 
   "inc3:edu_merged2", "inc3:edu_merged3", 
   "inc4:edu_merged2", "inc4:edu_merged3", 
   "inc5:edu_merged2", "inc5:edu_merged3", 
   # Readiness to quit
-  "antidepmed1:readiness", "Only.Menthol1:readiness", 
-  "mde_curr1:readiness", "ftcd.5.mins1:readiness", 
-  "bdi_score_w00:readiness",  
-  # Anhedonia
-  "BA1:shaps_score_pq1",
-  "shaps_score_pq1:mde_curr1", 
-  "shaps_score_pq1:otherdiag1",
-  "shaps_score_pq1:antidepmed1",  
-  "Var1:shaps_score_pq1",
+  "Only.Menthol1:readiness", 
+  "mde_curr1:readiness", "ftcd_score:readiness", 
   # FTCD Score 
   "sex_ps2:ftcd_score", "raceBlack:ftcd_score", 
   "raceHispanic:ftcd_score", "raceOther:ftcd_score", 
@@ -479,7 +495,6 @@ train_variables_dummy_include =
 test_variables_dummy_include = 
   test_variables_dummy_full_interactions[,train_variables_dummy_include_names]
 
-
 # Set penalty factors to enforce keeping Var and BA
 # Initialize penalty factors to 1 for all variables
 penalty_factors <- rep(1, ncol(train_variables_dummy_include))
@@ -490,7 +505,6 @@ ba1_col <- grep("^BA1$", colnames(train_variables_dummy_include))
 
 penalty_factors[c(var1_col, ba1_col)] <- 0
 names(penalty_factors) <- colnames(train_variables_dummy_include)
-
 ```
 
 
@@ -539,7 +553,7 @@ best_subset_names = names(coef(regsubsets_model, cp_min))
 ```{r}
 # Summary table of coef
 # Stepwise coefficients
-stepwise_coefs <- coef(logistic_model)
+stepwise_coefs <- coef(stepwise_model)
 stepwise_df <- data.frame(
   variable = names(stepwise_coefs),
   `Stepwise` = as.numeric(stepwise_coefs)
@@ -563,36 +577,67 @@ combined_df <- full_join(stepwise_df, enet_df, by = "variable") %>%
 # Remove the intercept row
 combined_df <- combined_df[combined_df$variable != "(Intercept)", ]
 
-# Replace NA values with an empty space
-combined_df[is.na(combined_df)] <- " "
-
 colnames(combined_df) <- gsub("Best.Subset", "Best Subset", colnames(combined_df))
+```
+
+```{r}
+combined_df <- combined_df %>%
+  mutate(
+    variable = sapply(variable, function(x) {
+      # Split each interaction term into components
+      terms <- unlist(strsplit(x, ":"))
+      # Sort alphabetically and rejoin with ":"
+      if (length(terms) > 1) {
+        paste(sort(terms), collapse = ":")
+      } else {
+        x  # If not an interaction term, keep it as is
+      }
+    })
+  )
+
+combined_df <- combined_df %>%
+  mutate(across(c(Stepwise, `Elastic Net`, `Best Subset`), 
+                ~ as.numeric(as.character(.))))
+
+
+# Combine rows with the same standardized interaction term names
+# Summing the coefficients for duplicate terms (or use mean instead if averaging is preferred)
+combined_df <- combined_df %>%
+  group_by(variable) %>%
+  summarize(across(c(`Stepwise`, `Elastic Net`, `Best Subset`), sum, na.rm = TRUE)) %>%
+  ungroup()
+
+# Replace NA values with an empty space
+combined_df <- combined_df %>%
+  mutate(across(c(Stepwise, `Elastic Net`, `Best Subset`), ~ ifelse(. == 0, " ", .)))
+
 
 # Display the final combined table
 kable(combined_df, row.names = F,
       caption = "Summary of Coefficients for Moderator Effects across 3 Selection Methods")
 ```
 
+
 ```{r}
-predicted_prob_logistic <- predict(logistic_model,
+predicted_prob_stepwise <- predict(stepwise_model,
                                 newdata = test_data,
                                 type = "response")
 
 # Convert predictions to numeric if needed (glmnet returns a matrix)
-predicted_prob_logistic <- as.numeric(predicted_prob_logistic)
+predicted_prob_stepwise <- as.numeric(predicted_prob_stepwise)
 
 # Plot ROC and calculate AUC
 # Generate ROC object
-roc_obj <- roc(test_outcome, predicted_prob_logistic)
+roc_stepwise <- roc(test_outcome, predicted_prob_stepwise)
 
 # Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
-  Specificity = rev(roc_obj$specificities),
-  Sensitivity = rev(roc_obj$sensitivities)
+  Specificity = rev(roc_stepwise$specificities),
+  Sensitivity = rev(roc_stepwise$sensitivities)
 )
 
 # Calculate the AUC
-auc_value <- auc(roc_obj)
+auc_value <- auc(roc_stepwise)
 
 # Plot ROC curve with ggplot2
 ROC_stepwise = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
@@ -671,16 +716,16 @@ predicted_prob_enet <- as.numeric(predicted_prob_enet)
 
 # Plot ROC curve and calculate AUC
 # Generate ROC object
-roc_obj <- roc(test_outcome, predicted_prob_enet)
+roc_enet <- roc(test_outcome_numeric, predicted_prob_enet)
 
 # Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
-  Specificity = rev(roc_obj$specificities),
-  Sensitivity = rev(roc_obj$sensitivities)
+  Specificity = rev(roc_enet$specificities),
+  Sensitivity = rev(roc_enet$sensitivities)
 )
 
 # Calculate the AUC
-auc_value <- auc(roc_obj)
+auc_value <- auc(roc_enet)
 
 # Plot ROC curve with ggplot2
 ROC_enet = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
@@ -695,7 +740,7 @@ ROC_enet = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
   theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
 ```
 
-```{r, fig.width = 12, fig.height = 4}
+```{r}
 num_cuts <- 10  # Number of bins for calibration
 
 calib_data <- data.frame(
@@ -775,16 +820,16 @@ predicted_prob_best_subset <- as.numeric(predicted_prob_best_subset) -1
 
 # Plot ROC and calculate AUC
 # Generate ROC object
-roc_obj <- roc(test_outcome, predicted_prob_best_subset)
+roc_best_subset <- roc(test_outcome, predicted_prob_best_subset)
 
 # Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
-  Specificity = rev(roc_obj$specificities),
-  Sensitivity = rev(roc_obj$sensitivities)
+  Specificity = rev(roc_best_subset$specificities),
+  Sensitivity = rev(roc_best_subset$sensitivities)
 )
 
 # Calculate the AUC
-auc_value <- auc(roc_obj)
+auc_value <- auc(roc_best_subset)
 
 # Plot ROC curve with ggplot2
 ROC_best_subset = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
@@ -801,7 +846,7 @@ ROC_best_subset = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
-```{r, fig.width = 12, fig.height = 4}
+```{r}
 num_cuts <- 10  # Number of bins for calibration
 
 calib_data <- data.frame(
@@ -853,7 +898,7 @@ calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
 
 ```
 
-```{r, fig.width = 10, fig.height = 10}
+```{r, fig.width = 8, fig.height = 8}
 plots_stepwise = arrangeGrob(
   calib_error_bar_stepwise, calib_loess_stepwise, ROC_stepwise,
   ncol = 3,
@@ -891,8 +936,92 @@ grid.arrange(
 )
 ```
 
+```{r}
+test_outcome_numeric = as.numeric(test_outcome) - 1
 
-### Predictor Effects
+# Calculate Brier Score for each model
+brier_stepwise <- mean((predicted_prob_stepwise - test_outcome_numeric)^2)
+brier_enet <- mean((predicted_prob_enet - test_outcome_numeric)^2)
+brier_best_subset <- mean((predicted_prob_best_subset - test_outcome_numeric)^2)
+
+
+# calibration error
+ce_calculate <- function(predictions, actuals, n_bins = 10) {
+  bins <- cut(predictions, breaks = seq(0, 1, length.out = n_bins + 1), include.lowest = TRUE)
+  bin_means <- tapply(predictions, bins, mean)
+  print(bin_means)
+  bin_actuals <- tapply(actuals, bins, mean)
+  bin_weights <- table(bins) / length(predictions)
+  ce <- sum(bin_weights * abs(bin_means - bin_actuals))
+  
+  # Remove NA values from bin_means and bin_actuals
+  valid_bins <- !is.na(bin_means) & !is.na(bin_actuals)
+  bin_means <- bin_means[valid_bins]
+  bin_actuals <- bin_actuals[valid_bins]
+  bin_weights <- bin_weights[valid_bins]
+  
+  # Calculate ECE with valid bins only
+  CE <- sum(bin_weights * abs(bin_means - bin_actuals))
+  
+  return(CE)
+}
+
+CE_stepwise <- ce_calculate(predicted_prob_stepwise, test_outcome_numeric)
+CE_enet <- ce_calculate(predicted_prob_enet, test_outcome_numeric)
+CE_best_subset <- ce_calculate(predicted_prob_best_subset, test_outcome_numeric)
+
+
+# Calculate AUC for each model
+auc_stepwise <- roc_stepwise$auc
+auc_enet <- roc_enet$auc
+auc_best_subset <- roc_best_subset$auc
+
+# Get optimal threshold, specificity, and sensitivity for each model
+threshold_stepwise <- as.numeric(coords(roc_stepwise, "best", 
+                                        ret = "threshold"))
+specificity_stepwise <- as.numeric(coords(roc_stepwise, "best", 
+                                          ret = "specificity"))
+sensitivity_stepwise <- as.numeric(coords(roc_stepwise, "best", 
+                                          ret = "sensitivity"))
+
+threshold_enet <- as.numeric(coords(roc_enet, "best", 
+                                    ret = "threshold"))
+specificity_enet <- as.numeric(coords(roc_enet, "best", 
+                                      ret = "specificity"))
+sensitivity_enet <- as.numeric(coords(roc_enet, "best", 
+                                      ret = "sensitivity"))
+
+threshold_best_subset <- as.numeric(coords(roc_best_subset, "best", 
+                                           ret = "threshold"))
+specificity_best_subset <- as.numeric(coords(roc_best_subset, "best", 
+                                             ret = "specificity"))
+sensitivity_best_subset <- as.numeric(coords(roc_best_subset, "best", 
+                                             ret = "sensitivity"))
+
+# Combine metrics into a table
+df_performance <- rbind(
+  Brier = round(c(brier_stepwise, brier_enet, brier_best_subset), 4),
+  `Calibration error` = round(c(ce_stepwise, ce_enet, ce_best_subset), 4),
+  AUC = round(c(auc_stepwise, auc_enet, auc_best_subset), 4),
+  Threshold = round(c(threshold_stepwise, threshold_enet, threshold_best_subset), 4),
+  Specificity = round(c(specificity_stepwise, specificity_enet, specificity_best_subset), 4),
+  Sensitivity = round(c(sensitivity_stepwise, sensitivity_enet, sensitivity_best_subset), 4)
+  #`Adjusted R^2` = round(c(adj_r2_stepwise, adj_r2_enet, adj_r2_best_subset), 4)
+)
+
+# rename columns
+colnames(df_performance) <- c("Stepwise", "Elastic Net", "Best Subset")
+
+# Display the final table
+kable(
+  df_performance, 
+  caption = "Calibration and Discrimination Metrics for 
+  Stepwise, Elastic Net, and Best Subset Models"
+)
+```
+
+
+### Baseline Characteristics as Potential Predictors
 ```{r}
 predictor_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu_merged", "race",
                      "ftcd_score", "ftcd.5.mins", "bdi_score_w00", "cpd_ps",
@@ -917,7 +1046,7 @@ scope_list <- list(
 
 # Fit logistic regression model with stepwise selection
 set.seed(2024)
-predictor_logistic_model <- step(
+predictor_stepwise_model <- step(
   glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
   scope = scope_list,
   direction = "both",
@@ -1001,7 +1130,7 @@ predictor_best_subset_names = names(coef(predictor_regsubsets_model, cp_min))
 ```{r}
 # Summary table of coef
 # Stepwise coefficients
-stepwise_coefs <- coef(predictor_logistic_model)
+stepwise_coefs <- coef(predictor_stepwise_model)
 stepwise_df <- data.frame(
   variable = names(stepwise_coefs),
   `Stepwise` = as.numeric(stepwise_coefs)
