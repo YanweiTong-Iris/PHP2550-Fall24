@@ -7,7 +7,7 @@ output:
   pdf_document:
     latex_engine: xelatex
     keep_tex: true
-    number_sections: true
+    #number_sections: true
 link-citations: yes
 header-includes:
   - "\\usepackage{xcolor}"
@@ -108,7 +108,7 @@ data = data  %>%
 
 # \textcolor{orange}{INTRODUCTION}
 
-This project, conducted in collaboration with Dr. George Papandonatos from the Biostatistics Department, seeks to explore factors influencing smoking cessation among adults with major depressive disorder (MDD). Individuals with MDD often smoke more heavily, demonstrate stronger nicotine dependence, and experience more challenging withdrawal symptoms than those without MDD. While varenicline is a proven aid for smoking cessation, addressing psychological factors associated with MDD-related smoking behaviors might also improve quit rates in this population.
+This regression analysis project, conducted in collaboration with Dr. George Papandonatos from Brown Department of  Biostatistics, seeks to explore factors influencing smoking cessation among adults with major depressive disorder (MDD). Individuals with MDD often smoke more heavily, demonstrate stronger nicotine dependence, and experience more challenging withdrawal symptoms than those without MDD. While varenicline is a proven aid for smoking cessation, addressing psychological factors associated with MDD-related smoking behaviors might also improve quit rates in this population.
 
 Dr. Papandonatos' previous randomized, placebo-controlled study (@hitsman2023efficacy), which included 300 adult smokers with either current or past MDD, employed a 2x2 factorial design and compared behavioral activation for smoking cessation (BASC) against standard treatment (ST) and varenicline versus placebo. The multi-center study found no significant differences in abstinence outcomes between BASC and ST, regardless of varenicline use. However, varenicline significantly outperformed placebo at the 27-week follow-up, achieving a quit rate of 16.2\% compared to 7.5\% for the placebo group. 
 
@@ -119,8 +119,6 @@ Building on the original study, this project will reexamine data from the same t
 ## Data Overview 
 
 The study population of the RCT consists of 300 adult smokers with a history of current or past MDD. 1) Sociodemographic, 2) smoking-related, and 3) psychiatric characteristics of the participants were collected at baseline and displayed in **Table 1**. Demographics are age, sex, race, income, education; the smoking behaviors/measurements include key statistics like Fagerstrom Test for Cigarette Dependence (FTCD) score, Nicotine Metabolism Ratio (NMR), and indicator for exclusive Mentholated cigarette user; and psychiatric disgnotic and treatment history . The participants were randomized into four groups: BASC with placebo (`BASC+placebo`), BASC with varenicline (`BASC+Varenicline`), ST with placebo (`ST+placebo`), and ST with varenicline (`ST+Varenicline`). 
-
-Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
 
 \newpage
 \begin{landscape}
@@ -259,7 +257,12 @@ table1_data %>%
 \end{landscape}
 \newpage
 
+
+Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
+
 Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
+
+
 
 ```{r}
 # Create a new variable that contains the 3 first levels of edu
@@ -271,7 +274,6 @@ data <- data %>%
   )))
 
 ```
-
 
 
 ```{r}
@@ -384,9 +386,18 @@ data_imp <- complete(data_mice, action = 1)
 
 ## Logistic Regression
 
+Given that our outcome variable `abst` is dichotomous, logistic regression is an appropriate modeling choice for this project. Logistic regression models the log-odds of the outcome as a linear combination of predictor variables, as expressed by the equation
 $$
 \log\left(\frac{p}{1 - p}\right) = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_n x_n + \beta_{ij} x_i x_j + \beta_{ik} x_i x_k + \dots
 $$
+where the $x_i x_j$ terms denote potential interaction terms (explained in the next subsection).
+
+This transformation ensures that predicted probabilities remain within the range of 0 to 1. To facilitate interpretation, we exponentiate the coefficients ($exp(\beta)$) to express them as odds ratios, which indicate the multiplicative change in the odds of the outcome for each one-unit increase in a predictor, holding other variables constant. When testing the selected model on the test dataset, the `predict()` function in R with `type = "response"` outputs probabilities directly, using the equation
+$$
+p = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_n x_n + \beta_{ij} x_i x_j + \beta_{ik} x_i x_k + \dots)}}
+$$
+This probability-based output provides an intuitive interpretation of the model's predictions in terms of the likelihood of the event occurring given the predictors.
+
 
 ## Variable Inclusion Criteria for Full Models
 
@@ -397,24 +408,26 @@ In addition to `BA` interaction terms as potential moderators, we included other
 For objective 2, the focus shifts to using baseline variables solely as predictors of smoking cessation outcomes, rather than as covariates or moderators. In this context, `BA` and `Var` are included as control variables across all models to account for the effects of behavioral and pharmacotherapy interventions. However, our goal here is to examine the predictive power of baseline characteristics independently, so we do not include any interaction terms. This approach simplifies the model by isolating the main effects of each baseline variable without adding complexity through interactions.
 
 ## Model Selection
-### Bidirectional Stepwise Selection
+### 1) Bidirectional Stepwise Selection
 Bidirectional stepwise selection is a model selection method that combines both forward selection and backward elimination to identify the most significant predictors for inclusion in the regression model. In forward selection, variables are added one at a time based on specific criteria, while backward elimination starts with all candidate variables and removes the least significant ones iteratively. By using both directions, this approach benefits from the advantages of both methods, allowing for the addition of meaningful variables and the removal of redundant ones, which can result in a more optimal and parsimonious model.
 
 In our analysis, we employed bidirectional stepwise selection using the Akaike Information Criterion (AIC) as the selection criterion. AIC balances model fit and complexity by penalizing the number of parameters, helping to prevent overfitting. The bidirectional approach enhances the model selection process by re-evaluating the significance of variables at each step, ensuring that the final model includes only those predictors that provide substantial contributions to explaining the variability in the outcome.
 
-### Elastic Net Regression
+### 2) Elastic Net Regression
 Elastic Net regression is a regularization and variable selection technique that incorporates both LASSO (L1 penalty) and Ridge (L2 penalty) regression methods. It addresses some limitations of LASSO, particularly in situations where predictors are highly correlated. By combining L1 and L2 penalties, Elastic Net encourages a grouping effect where correlated variables tend to be selected or excluded together, leading to more stable and reliable models.
 
 In our modeling, Elastic Net was utilized to take advantage of both variable shrinkage and selection properties of LASSO and the grouping effect of Ridge regression. This method helps in handling multi-collinearity among predictors while performing variable selection. We used cross-validation to determine the optimal value of the regularization parameter lambda, specifically selecting the lambda that minimizes the cross-validation error (lambda min). This approach ensures that the model achieves the best predictive performance on unseen data by effectively balancing bias and variance.
 
-### Best Subset Selection 
+### 3) Best Subset Selection 
 Best subset selection is a comprehensive model selection method that involves evaluating all possible combinations of predictor variables to identify the model that best fits the data according to a chosen criterion. 
 
-For *Objective 1*, due to the complexity of the full model— which included a high number of potential interaction covariate terms— we employed the sequential replacement method. Sequential replacement is a more computationally efficient alternative to exhaustive search for complex models; it iteratively replaces variables to find a subset that provides a good balance between model fit and complexity. For *Objective 2*, the model was less complex as it included only baseline predictors without interaction terms. This allowed us to use an exhaustive search strategy, evaluating all possible subsets of the predictors to find the optimal model. 
+For *Objective 1*, due to the complexity of the full model— which included a high number of potential interaction covariate terms— we employed the sequential replacement method, which is a more computationally efficient alternative to exhaustive search for complex models by iteratively replacing variables to find a subset that provides a good balance between model fit and complexity. For *Objective 2*, the model was less complex as it included only baseline predictors without interaction terms. This allowed us to use an exhaustive search strategy, evaluating all possible subsets of the predictors to find the optimal model. 
 
 We selected models based on Mallow's $Cp$ criterion, aiming to minimize this statistic. Mallow's $Cp$ provides a measure of the model's predictive error relative to the number of predictors used, helping to select models that are both accurate and parsimonious. By minimizing Mallow's $Cp$, we ensured that the selected model offers the best trade-off between goodness of fit and model simplicity.
 
 ## Performance Metrics (Calibration and Discrimination)
+
+To evaluate model performances, we used a combination of calibration and discrimination measures. Calibration plots with error bars and LOESS smoothing allowed us to visually assess the agreement between predicted probabilities and observed outcomes, indicating how well-calibrated the model is across different probability levels. The addition of error bars provides insights into the variability of predictions, while LOESS smoothing offers a flexible fit to better capture trends in calibration. The ROC curve evaluates the model's discrimination ability, reflecting its capability to distinguish between positive and negative outcomes. Furthermore, quantitative metrics such as Brier score and calibration error were included in tables to provide objective assessments of model accuracy and calibration. Brier score combines both calibration and sharpness of probability estimates, while calibration error specifically measures the deviation between predicted and observed probabilities, providing complementary insights into model performance beyond visual assessments.
 
 # \textcolor{orange}{RESULTS}
 
@@ -489,14 +502,12 @@ scope_list <- list(
 )
 
 # Fit logistic regression model with stepwise selection
-set.seed(2024)
 stepwise_model <- step(
   glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
   scope = scope_list,
   direction = "both",
   trace = 0
 )
-
 ```
 
 
@@ -505,12 +516,6 @@ stepwise_model <- step(
 # for L0 + L1
 train_variables_dummy <- variables_dummy[train_index, ]
 test_variables_dummy <- variables_dummy[-train_index, ]
-
-train_data_glmnet = data.frame(abst = train_outcome, train_variables_dummy)
-test_data_glmnet = data.frame(abst = test_outcome, test_variables_dummy)
-
-train_bestglm <- data.frame(train_variables, abst = train_outcome)
-test_bestglm <- data.frame(test_variables, abst = test_outcome)
 
 # Enforce Var and BA as 0 penalty
 # Elastic Net
@@ -703,18 +708,13 @@ kable(combined_df, row.names = F,
 
 
 ```{r}
-predicted_prob_stepwise <- predict(stepwise_model,
+predicted_prob_stepwise <- as.numeric(predict(stepwise_model,
                                 newdata = test_data,
-                                type = "response")
-
-# Convert predictions to numeric if needed (glmnet returns a matrix)
-predicted_prob_stepwise <- as.numeric(predicted_prob_stepwise)
+                                type = "response"))
 
 # Plot ROC and calculate AUC
-# Generate ROC object
 roc_stepwise <- roc(test_outcome, predicted_prob_stepwise)
 
-# Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
   Specificity = rev(roc_stepwise$specificities),
   Sensitivity = rev(roc_stepwise$sensitivities)
@@ -791,24 +791,18 @@ calib_loess_stepwise = ggplot(calib_data, aes(x = predicted, y = observed)) +
 ```
 
 ```{r}
-predicted_prob_enet <- predict(enet_model, 
+predicted_prob_enet <- as.numeric(predict(enet_model, 
                                 newx = as.matrix(test_variables_dummy_include), 
-                                s = "lambda.min", type = "response")
-
-# Convert predictions to numeric if needed (glmnet returns a matrix)
-predicted_prob_enet <- as.numeric(predicted_prob_enet)
+                                s = "lambda.min", type = "response"))
 
 # Plot ROC curve and calculate AUC
-# Generate ROC object
 roc_enet <- roc(test_outcome, predicted_prob_enet)
 
-# Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
   Specificity = rev(roc_enet$specificities),
   Sensitivity = rev(roc_enet$sensitivities)
 )
 
-# Calculate the AUC
 auc_value <- auc(roc_enet)
 
 # Plot ROC curve with ggplot2
@@ -883,36 +877,41 @@ calib_loess_enet = ggplot(calib_data, aes(x = predicted, y = observed)) +
 ```
 
 ```{r}
-predict_best_subset <- function(test_data = test_variables_dummy_include, 
-                                best_subset_coefs) {
-  intercept <- best_subset_coefs[1]
-  selected_vars <- names(best_subset_coefs)[-1] 
+predict_best_subset <- function(train_data, test_data, best_subset_coefs) {
+  train_data <- as.data.frame(train_data)
+  test_data <- as.data.frame(test_data)
   
-  test_subset <- test_data[, selected_vars, drop = FALSE]  
+  # Extract variable names from best subset selection
+  selected_vars <- names(best_subset_coefs)[-1]  # Exclude intercept
+  formula <- as.formula(paste("abst ~", paste(selected_vars, collapse = " + ")))
   
-  # Calculate predictions by multiplying test data with coefficients
-  # Matrix multiplication for predictors + intercept
-  predictions <- intercept + as.matrix(test_subset) %*% best_subset_coefs[selected_vars]
+  # Fit a glm model with the specified variables
+  model <- glm(formula, data = train_data, family = binomial)
   
-  return(predictions)
+  # Predict on test data using type = "response" to get probabilities
+  predicted_probabilities <- predict(model, newdata = test_data, type = "response")
+  
+  return(predicted_probabilities)
 }
 
-predicted_prob_best_subset <- predict_best_subset(test_data = test_variables_dummy_include, 
-                                   best_subset_coefs)
-# Convert predictions to numeric 
-predicted_prob_best_subset <- as.numeric(predicted_prob_best_subset) -1
+predicted_prob_best_subset <-  as.numeric(
+  predict_best_subset(
+    train_data = cbind(train_variables_dummy_include, 
+                       abst = as.numeric(train_outcome) -1),
+    test_data = cbind(test_variables_dummy_include, 
+                      abst = as.numeric(test_outcome) -1),
+    best_subset_coefs
+  )
+)
 
 # Plot ROC and calculate AUC
-# Generate ROC object
 roc_best_subset <- roc(test_outcome, predicted_prob_best_subset)
 
-# Convert the ROC object to a data frame for ggplot2
 roc_data <- data.frame(
   Specificity = rev(roc_best_subset$specificities),
   Sensitivity = rev(roc_best_subset$sensitivities)
 )
 
-# Calculate the AUC
 auc_value <- auc(roc_best_subset)
 
 # Plot ROC curve with ggplot2
@@ -1128,7 +1127,6 @@ scope_list <- list(
 )
 
 # Fit logistic regression model with stepwise selection
-set.seed(2024)
 predictor_stepwise_model <- step(
   glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
   scope = scope_list,
@@ -1191,7 +1189,6 @@ predictor_result_table_enet <- data.frame(
 ```
 
 ```{r}
-set.seed(2024)
 predictor_regsubsets_model <-
     regsubsets(y = train_outcome,
                x = train_predictors_dummy_include,
@@ -1206,7 +1203,6 @@ predictor_reg_summary = summary(predictor_regsubsets_model)
 cp_min = which.min(predictor_reg_summary$cp)
 predictor_best_subset_coefs = coef(predictor_regsubsets_model, cp_min)
 predictor_best_subset_names = names(coef(predictor_regsubsets_model, cp_min))
-
 ```
 
 
@@ -1317,8 +1313,15 @@ predictor_ROC_enet = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
 
 
 ```{r}
-predictor_prob_best_subset <- as.numeric(predict_best_subset(test_data = test_predictors_dummy, 
-                                   predictor_best_subset_coefs))-1
+predictor_prob_best_subset <-  as.numeric(
+  predict_best_subset(
+    train_data = cbind(train_predictors_dummy, 
+                       abst = as.numeric(train_outcome) -1),
+    test_data = cbind(test_predictors_dummy, 
+                      abst = as.numeric(test_outcome) -1),
+    predictor_best_subset_coefs
+  )
+)
 
 # Plot ROC and calculate AUC
 predictor_roc_best_subset <- roc(test_outcome, predictor_prob_best_subset)
@@ -1442,7 +1445,6 @@ Primary data were provided by Dr. George Papandonatos from the Department of Bio
 
 # Reference
 <div id="refs"></div>
-
 
 
 
