@@ -398,15 +398,23 @@ For objective 2, the focus shifts to using baseline variables solely as predicto
 
 ## Model Selection
 ### Bidirectional Stepwise Selection
+Bidirectional stepwise selection is a model selection method that combines both forward selection and backward elimination to identify the most significant predictors for inclusion in the regression model. In forward selection, variables are added one at a time based on specific criteria, while backward elimination starts with all candidate variables and removes the least significant ones iteratively. By using both directions, this approach benefits from the advantages of both methods, allowing for the addition of meaningful variables and the removal of redundant ones, which can result in a more optimal and parsimonious model.
 
+In our analysis, we employed bidirectional stepwise selection using the Akaike Information Criterion (AIC) as the selection criterion. AIC balances model fit and complexity by penalizing the number of parameters, helping to prevent overfitting. The bidirectional approach enhances the model selection process by re-evaluating the significance of variables at each step, ensuring that the final model includes only those predictors that provide substantial contributions to explaining the variability in the outcome.
 
 ### Elastic Net Regression
+Elastic Net regression is a regularization and variable selection technique that incorporates both LASSO (L1 penalty) and Ridge (L2 penalty) regression methods. It addresses some limitations of LASSO, particularly in situations where predictors are highly correlated. By combining L1 and L2 penalties, Elastic Net encourages a grouping effect where correlated variables tend to be selected or excluded together, leading to more stable and reliable models.
 
+In our modeling, Elastic Net was utilized to take advantage of both variable shrinkage and selection properties of LASSO and the grouping effect of Ridge regression. This method helps in handling multi-collinearity among predictors while performing variable selection. We used cross-validation to determine the optimal value of the regularization parameter lambda, specifically selecting the lambda that minimizes the cross-validation error (lambda min). This approach ensures that the model achieves the best predictive performance on unseen data by effectively balancing bias and variance.
 
 ### Best Subset Selection 
+Best subset selection is a comprehensive model selection method that involves evaluating all possible combinations of predictor variables to identify the model that best fits the data according to a chosen criterion. 
 
+For *Objective 1*, due to the complexity of the full model— which included a high number of potential interaction covariate terms— we employed the sequential replacement method. Sequential replacement is a more computationally efficient alternative to exhaustive search for complex models; it iteratively replaces variables to find a subset that provides a good balance between model fit and complexity. For *Objective 2*, the model was less complex as it included only baseline predictors without interaction terms. This allowed us to use an exhaustive search strategy, evaluating all possible subsets of the predictors to find the optimal model. 
 
+We selected models based on Mallow's $Cp$ criterion, aiming to minimize this statistic. Mallow's $Cp$ provides a measure of the model's predictive error relative to the number of predictors used, helping to select models that are both accurate and parsimonious. By minimizing Mallow's $Cp$, we ensured that the selected model offers the best trade-off between goodness of fit and model simplicity.
 
+## Performance Metrics (Calibration and Discrimination)
 
 # \textcolor{orange}{RESULTS}
 
