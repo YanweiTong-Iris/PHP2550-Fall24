@@ -7,13 +7,14 @@ output:
   pdf_document:
     latex_engine: xelatex
     keep_tex: true
+    number_sections: true
 link-citations: yes
 header-includes:
   - "\\usepackage{xcolor}"
 abstract: |
   **Purpose:** "to examine baseline variables as potential moderators of the effects of behavioral treatment on end-of-treatment (EOT) abstinence and evaluate baseline variables as predictors of abstinence, controlling for behavioral treatment and pharmacotherapy"  
   
-  **Methods:**     
+  **Methods**: Bidirectional Stepwise Selection, Elastic Net Regression, and Best Subset Selection     
   
   **Results and conclusion:**     
   
@@ -87,6 +88,9 @@ data = data  %>%
     Var = factor(Var),
     BA = factor(BA),
     sex_ps = factor(sex_ps),
+    NHW = factor(NHW),
+    Black = factor(Black),
+    
     ftcd.5.mins = factor(ftcd.5.mins),
     otherdiag = factor(otherdiag),
     antidepmed = factor(antidepmed),
@@ -102,15 +106,21 @@ data = data  %>%
   ))
 ```
 
-## \textcolor{orange}{INTRODUCTION}
+# \textcolor{orange}{INTRODUCTION}
 
+This project, conducted in collaboration with Dr. George Papandonatos from the Biostatistics Department, seeks to explore factors influencing smoking cessation among adults with major depressive disorder (MDD). Individuals with MDD often smoke more heavily, demonstrate stronger nicotine dependence, and experience more challenging withdrawal symptoms than those without MDD. While varenicline is a proven aid for smoking cessation, addressing psychological factors associated with MDD-related smoking behaviors might also improve quit rates in this population.
 
-Fagerstrom Test for Cigarette Dependence
-@hitsman2023efficacy
+Dr. Papandonatos' previous randomized, placebo-controlled study (@hitsman2023efficacy), which included 300 adult smokers with either current or past MDD, employed a 2x2 factorial design and compared behavioral activation for smoking cessation (BASC) against standard treatment (ST) and varenicline versus placebo. The multi-center study found no significant differences in abstinence outcomes between BASC and ST, regardless of varenicline use. However, varenicline significantly outperformed placebo at the 27-week follow-up, achieving a quit rate of 16.2\% compared to 7.5\% for the placebo group. 
 
-## \textcolor{orange}{METHODS}
+Building on the original study, this project will reexamine data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
 
-### Data Overview and Imputation
+# \textcolor{orange}{DATA}
+
+## Data Overview 
+
+The study population of the RCT consists of 300 adult smokers with a history of current or past MDD. 1) Sociodemographic, 2) smoking-related, and 3) psychiatric characteristics of the participants were collected at baseline and displayed in **Table 1**. Demographics are age, sex, race, income, education; the smoking behaviors/measurements include key statistics like Fagerstrom Test for Cigarette Dependence (FTCD) score, Nicotine Metabolism Ratio (NMR), and indicator for exclusive Mentholated cigarette user; and psychiatric disgnotic and treatment history . The participants were randomized into four groups: BASC with placebo (`BASC+placebo`), BASC with varenicline (`BASC+Varenicline`), ST with placebo (`ST+placebo`), and ST with varenicline (`ST+Varenicline`). 
+
+Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
 
 \newpage
 \begin{landscape}
@@ -219,6 +229,7 @@ table1_data %>%
     )
   ) %>%
   add_overall() %>%
+  add_p() %>%
   modify_header(label ~ "**Characteristic**") %>%
   modify_caption(caption = "Participant characteristics by overall sample and treatment arm") %>%
   # for sub-tab purpose
@@ -227,7 +238,7 @@ table1_data %>%
       mutate(across(everything(), ~ ifelse(. == "0 (NA%)", "", .)))
   ) %>%  
   modify_table_styling(
-    rows = label %in% c("Demographics", "Smoking", "Psychiatric"),
+    rows = label %in% c("Sociodemographics", "Smoking", "Psychiatric"),
     columns = label,
     text_format = "bold"
   )   %>%
@@ -239,7 +250,7 @@ table1_data %>%
   ) %>%
   kableExtra::kable_styling(
     position = "center",
-    latex_options = c("striped", "repeat_header"),
+    latex_options = c("striped", "repeat_header", "hold_position", "scale_down"),
     stripe_color = "gray!15",
     font_size = 8
   )
@@ -248,38 +259,7 @@ table1_data %>%
 \end{landscape}
 \newpage
 
-```{r}
-# Missingness table
-# Calculate missing values for each variable
-missing_summary <- data %>%
-  summarise(across(everything(), ~ sum(is.na(.)), .names = "{col}")) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Number") %>%
-  mutate(Pct = (Number / nrow(data)) * 100) %>%
-  filter(Number > 0)  # Exclude variables with 0 missingness
-
-# Define a named vector with old and new names for variables
-variable_names <- c(
-  "inc" = "Income",
-  "ftcd_score" = "FTCD score at baseline",
-  "crv_total_pq1" = "Cigarette reward value at baseline",
-  "shaps_score_pq1" = "Anhedonia",
-  "NMR" = "Nicotine Metabolism Ratio",
-  "Only.Menthol" = "Exclusive Mentholated Cigarette User",
-  "readiness" = "Baseline readiness to quit smoking"
-)
-
-# Rename variables in the summary table
-missing_summary <- missing_summary %>%
-  mutate(Variable = recode(Variable, !!!variable_names))
-
-
-# Create and display the table
-missing_summary %>%
-  arrange(desc(Pct)) %>%
-  mutate(Pct = sprintf("%.2f%%", Pct)) %>%
-  kable(col.names = c("Variable", "Number", "Pct"), 
-        caption = "Summary of missing values")
-```
+Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
 
 ```{r}
 # Create a new variable that contains the 3 first levels of edu
@@ -314,32 +294,123 @@ kable(table_race_menthol,
             footnote_as_chunk = FALSE)
 
 ```
+## Data Missingness and Imputation
 
+```{r}
+# Missingness table
+# Calculate missing values for each variable
+missing_summary <- data %>%
+  summarise(across(everything(), ~ sum(is.na(.)), .names = "{col}")) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Number") %>%
+  mutate(Pct = (Number / nrow(data)) * 100) %>%
+  filter(Number > 0)  # Exclude variables with 0 missingness
+
+# Define a named vector with old and new names for variables
+variable_names <- c(
+  "inc" = "Income",
+  "ftcd_score" = "FTCD score at baseline",
+  "crv_total_pq1" = "Cigarette reward value at baseline",
+  "shaps_score_pq1" = "Anhedonia",
+  "NMR" = "Nicotine Metabolism Ratio",
+  "Only.Menthol" = "Exclusive Mentholated Cigarette User",
+  "readiness" = "Baseline readiness to quit smoking"
+)
+
+# Rename variables in the summary table
+missing_summary <- missing_summary %>%
+  mutate(Variable = recode(Variable, !!!variable_names))
+
+
+# Calculate total missing values and total missing percentage
+total_rows_with_missing <- sum(rowSums(is.na(data)) > 0)
+total_rows_with_missing_pct <- (total_rows_with_missing / nrow(data)) * 100
+
+
+missing_summary <- missing_summary %>%
+  arrange(desc(Pct)) %>%
+  mutate(Pct = sprintf("%.2f%%", Pct)) 
+
+# Combine the total missingness row with the summary table
+total_missing_row <- tibble(
+  Variable = "Participants with any missingness",
+  Number = total_rows_with_missing,
+  Pct = sprintf("%.2f%%", total_rows_with_missing_pct)
+)
+
+missing_summary <- bind_rows(total_missing_row, missing_summary)
+
+# Display the final table
+missing_summary %>%
+  kable(
+    col.names = c("Variable", "Number", "Pct"), 
+    caption = "Summary of Missing Values"
+  )
+```
+
+The overall missingness in the dataset is approximately 20\%, which exceeds the commonly accepted 5\% threshold for data completeness. This level of missing data could compromise the validity of the analysis if left unaddressed, as it may lead to biased results or loss of valuable information. To preserve the dataset's integrity and maintain statistical power, we opted to impute the missing values. We utilized the Multiple Imputation by Chained Equations (MICE) method, which allows for flexible handling of various data types and patterns of missingness, thereby maximizing the use of available information and improving the robustness of the analyses.
 
 ```{r}
 # Perform MICE imputation
 data_mice <- mice(data, m = 5, method = "pmm", 
                   maxit = 50, seed = 2024, printFlag = FALSE)
 
+
 # Complete the data by extracting one of the imputed datasets
 data_imp <- complete(data_mice, action = 1) 
+# and calculate mean for numeric and mode for categorical/binary columns
+# data_long <- complete(data_mice, action = "long") 
+
+# Define a mode function for categorical/binary variables
+# mode_func <- function(x) {
+#   ux <- unique(x)
+#   ux[which.max(tabulate(match(x, ux)))]
+# }
+
+# data_imp = data_long %>%
+#   dplyr::select(-.id, -.imp) %>%
+#   group_by(id) %>%
+#   summarize(across(where(is.numeric), mean, na.rm = TRUE), 
+#             across(where(~ is.factor(.) || is.character(.)), mode_func)) %>%
+#   ungroup() %>%
+#   mutate(across(where(is.numeric) &
+#                   !matches("NMR"), # NMR is not integer
+#                 round))
 ```
 
 
-### Analysis Methods
+
+
+# \textcolor{orange}{METHODS}
+
+## Logistic Regression
+
+$$
+\log\left(\frac{p}{1 - p}\right) = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_n x_n + \beta_{ij} x_i x_j + \beta_{ik} x_i x_k + \dots
+$$
+
+## Variable Inclusion Criteria for Full Models
+
+For objective 1, psychotherapy (`BA`) is the primary predictor of interest, while pharmacotherapy (`Var`) is treated as a control variable. Thus, we ensured to include both of the treatments in all models as consistent factors. The goal of this analysis is to explore how various baseline characteristics might moderate the effect of behavioral treatment on smoking cessation/abstinence outcomes. To achieve this, we included a range of interaction terms involving `BA` and key sociodemographic, smoking-related, and psychiatric variables as potential moderators. These interaction terms would allow us to examine how different participant characteristics may influence the effectiveness of behavoriol activation in promoting abstinence. However, we excluded certain terms, such as interactions between `BA` and variables like indicator of smoking with 5 mins of waking up (`ftcd.5mins`) or cigarettes per day (`cpd_ps`), because these measures are components of the broader FTCD score (`ftcd_score`) and thus would provide redundant information. By prioritizing unique, non-overlapping terms, we aimed to create a comprehensive yet parsimonious model.
+
+In addition to `BA` interaction terms as potential moderators, we included other interaction terms involving `Var` and various baseline characteristics as covariates. We belived these covariate interaction terms shall be considered important, as they account for known associations that could impact treatment outcomes. For instance, as previously discussed, there was a recognized relationship between race and menthol-only cigarette use, which could affect smoking cessation success. Similarly, the synergy between factors like baseline readiness to quit smoking (`readiness`), Nicotine Metabolism Ratio (`NMR`), and MDD history (`mde_curr`) could have critical influences smoking behavior and mental health status and have plausible biological or statistical interactions with other sociodemographic and smoking-related variables. These interactions reflect meaningful covariate effects that contribute to a more nuanced understanding of how different factors influence treatment outcomes, enabling a more robust analysis of predictors and moderators in the context of smoking cessation.
+
+For objective 2, the focus shifts to using baseline variables solely as predictors of smoking cessation outcomes, rather than as covariates or moderators. In this context, `BA` and `Var` are included as control variables across all models to account for the effects of behavioral and pharmacotherapy interventions. However, our goal here is to examine the predictive power of baseline characteristics independently, so we do not include any interaction terms. This approach simplifies the model by isolating the main effects of each baseline variable without adding complexity through interactions.
+
+## Model Selection
+### Bidirectional Stepwise Selection
+
+
+### Elastic Net Regression
+
+
+### Best Subset Selection 
 
 
 
 
+# \textcolor{orange}{RESULTS}
 
-
-
-
-
-
-## \textcolor{orange}{RESULTS}
-
-### Baseline Characteristics as Potential Moderators 
+## Baseline Characteristics as Potential Moderators 
 ```{r}
 # Logistic regression with stepwise selection
 # Define the outcome and variables in the model
@@ -401,6 +472,7 @@ other_interaction_terms <- paste(
 # Full formula for main effects and interactions
 full_formula <- as.formula(paste("abst ~", main_effects, "+", BA_interaction_terms,
                                  "+", other_interaction_terms))
+
 
 # Define scope with `Var` and `BA` as forced terms in the main model
 scope_list <- list(
@@ -530,20 +602,20 @@ result_table_enet <- data.frame(
 ```
 
 
-```{r}
+```{r, results = "hide"}
 set.seed(2024)
 regsubsets_model <-
-    regsubsets(
+    suppressWarnings(regsubsets(
       y = train_outcome,
       x = train_variables_dummy_include,
-      nbest = 1,
-      # 1 best model for each number of predictors
+      nbest = 1, # 1 best model for each number of predictors
       nvmax = 20,
       force.in = c("Var1", "BA1"),
       force.out = NULL,
       really.big = TRUE,
-      method = "seqrep"
-    )
+      method = "seqrep",
+      warn.dep = FALSE
+    ))
 
 reg_summary = summary(regsubsets_model)
 cp_min = which.min(reg_summary$cp)
@@ -617,7 +689,8 @@ combined_df <- combined_df %>%
 
 # Display the final combined table
 kable(combined_df, row.names = F,
-      caption = "Summary of Coefficients for Moderator Effects across 3 Selection Methods")
+      caption = "Summary of Coefficients for Potential Moderator Effects 
+      across Model Selection Methods")
 ```
 
 
@@ -925,7 +998,7 @@ plots_best_subset = arrangeGrob(
 
 # Bold the main title
 main_title <- textGrob(
-  "Figure 1: Calibration Plots with Error Bars and LOESS and ROC Curves for 3 Selection Models",
+  "Figure 1: Calibration Plots with Error Bars and LOESS and ROC Curves (Moderator Effects)",
   gp = gpar(fontsize = 16) 
 )
 
@@ -1003,7 +1076,7 @@ sensitivity_best_subset <- as.numeric(coords(roc_best_subset, "best",
 
 # Combine metrics into a table
 df_performance <- rbind(
-  Brier = round(c(brier_stepwise, brier_enet, brier_best_subset), 4),
+  `Brier score` = round(c(brier_stepwise, brier_enet, brier_best_subset), 4),
   `Calibration error` = round(c(CE_stepwise, CE_enet, CE_best_subset), 4),
   AUC = round(c(auc_stepwise, auc_enet, auc_best_subset), 4),
   Threshold = round(c(threshold_stepwise, threshold_enet, threshold_best_subset), 4),
@@ -1018,13 +1091,12 @@ colnames(df_performance) <- c("Stepwise", "Elastic Net", "Best Subset")
 # Display the final table
 kable(
   df_performance, 
-  caption = "Calibration and Discrimination Metrics for 
-  Stepwise, Elastic Net, and Best Subset Models"
+  caption = "Calibration and Discrimination Metrics Moderator Effects Modeling"
 )
 ```
 
 
-### Baseline Characteristics as Potential Predictors
+## Baseline Characteristics as Potential Predictors
 ```{r}
 predictor_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu_merged", "race",
                      "ftcd_score", "ftcd.5.mins", "bdi_score_w00", "cpd_ps",
@@ -1077,7 +1149,7 @@ test_predictors_dummy <- predictors_dummy[-train_index, ]
 train_predictors_dummy_include = 
   train_predictors_dummy[,train_predictors_dummy_include_names]
 test_predictors_dummy_include = 
-  test_variables_dummy[,train_predictors_dummy_include_names]
+  test_predictors_dummy[,train_predictors_dummy_include_names]
 
 # Set penalty factors to enforce keeping Var and BA
 # Initialize penalty factors to 1 for all variables
@@ -1120,10 +1192,10 @@ predictor_regsubsets_model <-
                force.in = c("Var1", "BA1"),
                force.out = NULL,
                really.big = T,
-               method = "exhaustive")
+               method = "seqrep")
 
 predictor_reg_summary = summary(predictor_regsubsets_model)
-cp_min = which.min(reg_summary$cp)
+cp_min = which.min(predictor_reg_summary$cp)
 predictor_best_subset_coefs = coef(predictor_regsubsets_model, cp_min)
 predictor_best_subset_names = names(coef(predictor_regsubsets_model, cp_min))
 
@@ -1171,15 +1243,192 @@ combined_df <- combined_df %>%
 
 # Display the final combined table
 kable(combined_df, row.names = F,
-      caption = "Summary of Coefficients for Predictor Effects across 3 Selection Methods")
+      caption = "Summary of Coefficients for Potential Predictor Effects 
+      across Model Selection Methods")
+```
+
+```{r}
+predictor_prob_stepwise <- as.numeric(predict(predictor_stepwise_model,
+                                newdata = test_data,
+                                type = "response"))
+
+# Plot ROC and calculate AUC
+predictor_roc_stepwise <- roc(test_outcome, predictor_prob_stepwise)
+
+roc_data <- data.frame(
+  Specificity = rev(predictor_roc_stepwise$specificities),
+  Sensitivity = rev(predictor_roc_stepwise$sensitivities)
+)
+
+auc_value <- auc(predictor_roc_stepwise)
+
+# Plot ROC curve with ggplot2
+predictor_ROC_stepwise = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
+  geom_line(color = "black", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  annotate("text", x = 0.8, y = 0.2, 
+           label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
+  labs(
+    x = "1 - Specificity",
+    y = "Sensitivity"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
 ```
 
 
-## \textcolor{orange}{CONCLUSION}
+```{r}
+predictor_prob_enet <- as.numeric(predict(predictor_enet_model, 
+                                newx = as.matrix(test_predictors_dummy), 
+                                s = "lambda.min", type = "response"))
 
-## \textcolor{orange}{LIMITATIONS}
+# Plot ROC curve and calculate AUC
+predictor_roc_enet <- roc(test_outcome, predictor_prob_enet)
 
-## Consent, Data, and Code Availability
+# Convert the ROC object to a data frame for ggplot2
+roc_data <- data.frame(
+  Specificity = rev(predictor_roc_enet$specificities),
+  Sensitivity = rev(predictor_roc_enet$sensitivities)
+)
+
+auc_value <- auc(predictor_roc_enet)
+
+# Plot ROC curve with ggplot2
+predictor_ROC_enet = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
+  geom_line(color = "black", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  annotate("text", x = 0.8, y = 0.2, label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
+  labs(
+    x = "1 - Specificity",
+    y = "Sensitivity"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+```{r}
+predictor_prob_best_subset <- as.numeric(predict_best_subset(test_data = test_predictors_dummy, 
+                                   predictor_best_subset_coefs))-1
+
+# Plot ROC and calculate AUC
+predictor_roc_best_subset <- roc(test_outcome, predictor_prob_best_subset)
+
+roc_data <- data.frame(
+  Specificity = rev(predictor_roc_best_subset$specificities),
+  Sensitivity = rev(predictor_roc_best_subset$sensitivities)
+)
+
+auc_value <- auc(predictor_roc_best_subset)
+
+# Plot ROC curve with ggplot2
+predictor_ROC_best_subset = ggplot(roc_data, aes(x = 1-Specificity, y = Sensitivity)) +
+  geom_line(color = "black", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  annotate("text", x = 0.8, y = 0.2, 
+           label = paste("AUC =", round(auc_value, 2)), size = 5, color = "Black") +
+  labs(
+    x = "1 - Specificity",
+    y = "Sensitivity"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r}
+# Calculate Brier Score for each model
+brier_stepwise <- mean((predictor_prob_stepwise - test_outcome_numeric)^2)
+brier_enet <- mean((predictor_prob_enet - test_outcome_numeric)^2)
+brier_best_subset <- mean((predictor_prob_best_subset - test_outcome_numeric)^2)
+
+
+# calibration error
+ce_calculate <- function(predictions, actuals, n_bins = 10) {
+  bins <- cut(predictions, breaks = seq(0, 1, length.out = n_bins + 1), 
+              include.lowest = TRUE)
+  bin_means <- tapply(predictions, bins, mean)
+  bin_actuals <- tapply(actuals, bins, mean)
+  bin_weights <- table(bins) / length(predictions)
+  ce <- sum(bin_weights * abs(bin_means - bin_actuals))
+  
+  # Remove NA values from bin_means and bin_actuals
+  valid_bins <- !is.na(bin_means) & !is.na(bin_actuals)
+  bin_means <- bin_means[valid_bins]
+  bin_actuals <- bin_actuals[valid_bins]
+  bin_weights <- bin_weights[valid_bins]
+  
+  # Calculate ECE with valid bins only
+  CE <- sum(bin_weights * abs(bin_means - bin_actuals))
+  
+  return(CE)
+}
+
+CE_stepwise <- ce_calculate(predictor_prob_stepwise, 
+                                      test_outcome_numeric)
+CE_enet <- ce_calculate(predictor_prob_enet, 
+                                  test_outcome_numeric)
+CE_best_subset <- ce_calculate(predictor_prob_best_subset, 
+                                         test_outcome_numeric)
+```
+
+
+```{r}
+# Calculate AUC for each model
+auc_stepwise <- predictor_roc_stepwise$auc
+auc_enet <- predictor_roc_enet$auc
+auc_best_subset <- predictor_roc_best_subset$auc
+
+# Get optimal threshold, specificity, and sensitivity for each model
+threshold_stepwise <- as.numeric(coords(predictor_roc_stepwise, "best", 
+                                        ret = "threshold"))
+specificity_stepwise <- as.numeric(coords(predictor_roc_stepwise, "best", 
+                                          ret = "specificity"))
+sensitivity_stepwise <- as.numeric(coords(predictor_roc_stepwise, "best", 
+                                          ret = "sensitivity"))
+
+threshold_enet <- as.numeric(coords(predictor_roc_enet, "best", 
+                                    ret = "threshold"))
+specificity_enet <- as.numeric(coords(predictor_roc_enet, "best", 
+                                      ret = "specificity"))
+sensitivity_enet <- as.numeric(coords(predictor_roc_enet, "best", 
+                                      ret = "sensitivity"))
+
+threshold_best_subset <- as.numeric(coords(predictor_roc_best_subset, "best", 
+                                           ret = "threshold"))
+specificity_best_subset <- as.numeric(coords(predictor_roc_best_subset, "best", 
+                                             ret = "specificity"))
+sensitivity_best_subset <- as.numeric(coords(predictor_roc_best_subset, "best", 
+                                             ret = "sensitivity"))
+
+# Combine metrics into a table
+predictor_df_performance <- rbind(
+  `Brier score` = round(c(brier_stepwise, brier_enet, brier_best_subset), 4),
+  `Calibration error` = round(c(CE_stepwise, CE_enet, CE_best_subset), 4),
+  AUC = round(c(auc_stepwise, auc_enet, auc_best_subset), 4),
+  Threshold = round(c(threshold_stepwise, threshold_enet, threshold_best_subset), 4),
+  Specificity = round(c(specificity_stepwise, specificity_enet, specificity_best_subset), 4),
+  Sensitivity = round(c(sensitivity_stepwise, sensitivity_enet, sensitivity_best_subset), 4)
+  #`Adjusted R^2` = round(c(adj_r2_stepwise, adj_r2_enet, adj_r2_best_subset), 4)
+)
+
+# rename columns
+colnames(predictor_df_performance) <- c("Stepwise", "Elastic Net", "Best Subset")
+
+# Display the final table
+kable(
+  predictor_df_performance, 
+  caption = "Calibration and Discrimination Metrics for Predictor Effect Modeling"
+)
+```
+
+
+# \textcolor{orange}{CONCLUSION}
+
+# \textcolor{orange}{LIMITATIONS}
+
+# Consent, Data, and Code Availability
 
 Primary data were provided by Dr. George Papandonatos from the Department of Biostatistics at Brown University. The original data cannot be shared directly for privacy. Replication scripts are available at <https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project2>.
 
@@ -1187,9 +1436,7 @@ Primary data were provided by Dr. George Papandonatos from the Department of Bio
 <div id="refs"></div>
 
 
-\pagebreak
 
-# Figure Appendix
 
 \pagebreak
 
