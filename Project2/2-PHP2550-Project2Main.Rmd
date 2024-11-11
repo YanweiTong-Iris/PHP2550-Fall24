@@ -48,18 +48,11 @@ library(naniar)
 library(gtsummary)
 library(gt)
 library(patchwork)
-library(stargazer)
 library(knitcitations)
-library(mosaic)
 library(mice)
-library(summarytools)
-library(npreg)
-library(mgcv)
 library(glmnet)
 library(pROC)
 library(MASS)
-library(survey)
-library(glmulti)
 library(leaps)
 library(RColorBrewer) 
 library(cowplot)
@@ -264,9 +257,9 @@ The study population of the RCT consists of 300 adult smokers with a history of 
 
 Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
 
-Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
+Regarding the variable education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
 
-Regarding potential interaction effects between variables in the dataset, race versus exclusive menthol cigarette use would be a good example. As shown in the contingency table, the distribution across racial groups is not balanced, as indicated by the significant Chi-square test statistic, suggesting that certain racial groups (Black in this case) might have a stronger inclination towards exclusive menthol use. This imbalance in distribution underscores the importance of considering racial demographics in our analysis, as they may interact with other smoking-related behaviors or biological factors.
+To explore the potential interaction effects between variables in the dataset, race versus exclusive menthol cigarette use would be a good example. As shown in the contingency table (**Table 2**), the distribution across racial groups is not balanced, as indicated by the significant Chi-square test statistic, suggesting that certain racial groups (Black in this case) might have a stronger inclination towards exclusive menthol use. This imbalance in distribution underscores the importance of considering racial demographics in our analysis, as they may interact with other smoking-related behaviors or biological factors.
 
 
 
