@@ -1,5 +1,5 @@
 ---
-title: "Smoking cessation in adults with major depressive disorder (MDD)"
+title: "Baseline Characteristics as Moderators and Predictors of Smoking Cessation in Adults with Major Depressive Disorder"
 subtitle: "PHP2550 Project 2: A regression analysis"
 author: "Yanwei (Iris) Tong"
 date: "2024-10-10"
@@ -12,11 +12,11 @@ link-citations: yes
 header-includes:
   - "\\usepackage{xcolor}"
 abstract: |
-  **Purpose:** Building on a previous randomized, placebo-controlled study exploring factors influencing smoking cessation among adults with major depressive disorder (MDD), this project reexamined data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
+  **Purpose:** Building on a previous randomized, placebo-controlled study exploring factors influencing smoking cessation among adults with major depressive disorder (MDD), this project reexamined data from the same trial to accomplish the following two main objectives: 1) to identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) to evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
   
-  **Methods**: we applied logistic regression to model the binary smoking abstinence outcome, implementing three selection methods to identify predictive variables: bidirectional stepwise selection using AIC, elastic net regression with cross-validation, and best subset selection with Mallow’s Cp criterion. Interaction terms were carefully incorporated, especially for factors hypothesized to moderate behavioral activation effects on abstinence. *Objective 1* included a comprehensive range of baseline variables and interaction terms with BA, while *Objective 2* focused solely on baseline predictors without interactions to assess their independent predictive effects. Calibration and discrimination metrics were used to evaluate model performance.     
+  **Methods**: We applied logistic regression to model the binary smoking abstinence outcome, implementing three selection methods to identify predictive variables: bidirectional stepwise selection using AIC, elastic net regression with cross-validation, and best subset selection with Mallow’s Cp criterion. Interaction terms were carefully incorporated, especially for factors hypothesized to moderate behavioral activation effects on abstinence. *Objective 1* included a comprehensive range of baseline variables and interaction terms with BA, while *Objective 2* focused solely on baseline predictors without interactions to assess their independent predictive effects. Calibration and discrimination metrics were used to evaluate model performance.     
   
-  **Results and conclusion:**     
+  **Results and conclusion**: Our analysis identified several key baseline characteristics as potential moderators and predictors for smoking cessation among individuals with MDD. Interactions between BA and NMR, readiness to quit, and anhedonia suggested nuanced influences on cessation, potentially acting as moderators of treatment effects. For predictor effects, variables such as education level, race, and Nicotine Metabolism Ratio (NMR) had certain impacts on odds of abstinence. In terms of model performance, Elastic Net achieved the best calibration metrics, with the lowest Brier score and calibration error, whereas Stepwise and Best Subset exhibited slightly higher AUC values, reflecting marginally better discrimination. 
   
 
 geometry: margin=1in
@@ -113,18 +113,6 @@ data = data  %>%
 This regression analysis project, conducted in collaboration with Dr. George Papandonatos from Brown Department of  Biostatistics, seeks to explore factors influencing smoking cessation among adults with major depressive disorder (MDD). Individuals with MDD often smoke more heavily, demonstrate stronger nicotine dependence, and experience more challenging withdrawal symptoms than those without MDD. While varenicline is a proven aid for smoking cessation, addressing psychological factors associated with MDD-related smoking behaviors might also improve quit rates in this population.
 
 Dr. Papandonatos' previous randomized, placebo-controlled study (@hitsman2023efficacy), which included 300 adult smokers with either current or past MDD, employed a 2x2 factorial design and compared behavioral activation for smoking cessation (BASC) against standard treatment (ST) and varenicline versus placebo. The multi-center study found no significant differences in abstinence outcomes between BASC and ST, regardless of varenicline use. However, varenicline significantly outperformed placebo at the 27-week follow-up, achieving a quit rate of 16.2\% compared to 7.5\% for the placebo group. 
-
-Building on the original study, this project would reexamine data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
-
-# \textcolor{orange}{DATA}
-
-## Data Overview 
-
-The study population of the RCT consists of 300 adult smokers with a history of current or past MDD. 1) Sociodemographic, 2) smoking-related, and 3) psychiatric characteristics of the participants were collected at baseline and displayed in **Table 1**. Demographics are age, sex, race, income, education; the smoking behaviors/measurements include key statistics like Fagerstrom Test for Cigarette Dependence (FTCD) score, Nicotine Metabolism Ratio (NMR), and indicator for exclusive Mentholated cigarette user; and psychiatric disgnotic and treatment history . The participants were randomized into four groups: BASC with placebo (`BASC+placebo`), BASC with varenicline (`BASC+Varenicline`), ST with placebo (`ST+placebo`), and ST with varenicline (`ST+Varenicline`). 
-
-Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
-
-Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
 
 
 \newpage
@@ -265,6 +253,22 @@ table1_data %>%
 \newpage
 
 
+Building on the original study, this project would reexamine data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
+
+
+# \textcolor{orange}{DATA}
+
+## Data Overview 
+
+The study population of the RCT consists of 300 adult smokers with a history of current or past MDD. 1) Sociodemographic, 2) smoking-related, and 3) psychiatric characteristics of the participants were collected at baseline and displayed in **Table 1**. Demographics are age, sex, race, income, education; the smoking behaviors/measurements include key statistics like Fagerstrom Test for Cigarette Dependence (FTCD) score, Nicotine Metabolism Ratio (NMR), and indicator for exclusive Mentholated cigarette user; and psychiatric disgnotic and treatment history . The participants were randomized into four groups: BASC with placebo (`BASC+placebo`), BASC with varenicline (`BASC+Varenicline`), ST with placebo (`ST+placebo`), and ST with varenicline (`ST+Varenicline`). 
+
+Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
+
+Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
+
+Regarding potential interaction effects between variables in the dataset, race versus exclusive menthol cigarette use would be a good example. As shown in the contingency table, the distribution across racial groups is not balanced, as indicated by the significant Chi-square test statistic, suggesting that certain racial groups (Black in this case) might have a stronger inclination towards exclusive menthol use. This imbalance in distribution underscores the importance of considering racial demographics in our analysis, as they may interact with other smoking-related behaviors or biological factors.
+
+
 
 ```{r}
 # Create a new variable that contains the 3 first levels of edu
@@ -277,8 +281,6 @@ data <- data %>%
 
 ```
 
-
-Regarding potential interaction effects between variables in the dataset, race versus exclusive menthol cigarette use would be a good example. As shown in the contingency table, the distribution across racial groups is not balanced, as indicated by the significant Chi-square test statistic, suggesting that certain racial groups (Black in this case) might have a stronger inclination towards exclusive menthol use. This imbalance in distribution underscores the importance of considering racial demographics in our analysis, as they may interact with other smoking-related behaviors or biological factors.
 
 
 ```{r}
@@ -551,7 +553,7 @@ BA_interaction_terms <-
         sep = " + ")
 
 other_interaction_terms <- paste(
-  # pharmatherapy with demographics
+  # pharmacotherapy with demographics
   "Var:age_ps + Var:sex_ps + Var:race + Var:ftcd_score + Var:cpd_ps",
   # between demographics
   "inc:edu_merged",
@@ -625,7 +627,7 @@ train_variables_dummy_include_names <- c(
   "BA1:otherdiag1", "BA1:antidepmed1",
   "BA1:mde_curr1","BA1:NMR",
   "BA1:Only.Menthol1", "BA1:readiness",
-  # Pharmatherapy
+  # Pharmacotherapy
   "Var1:mde_curr1",
   "Var1:age_ps", "Var1:sex_ps2",
   "Var1:raceBlack", "Var1:raceHispanic",
@@ -1313,7 +1315,7 @@ predictor_best_subset_coefs = coef(model)
 
 In examining the coefficients and odds ratios for baseline characteristics as predictors, the Nicotine Metabolism Ratio (`NMR`) stood out as a significant predictor, with high odds ratios in all models, particularly in the Stepwise selection method, indicating its potential strong impact on smoking cessation outcomes. Other demographic variables, such as race, showed generally low odds ratios (i.e., `raceOther` and `raceBlack`), suggesting possible barriers to cessation in certain groups. Additionally, the education indicators, `edu_merged2` and `edu_merged3`, present odds ratios that differ in directionality, with `edu_merged2` consistently showing OR < 1, while `edu_merged3` displays OR > 1 across methods. This may suggest that different levels of educational attainment may have opposing effects on the success likelihood of smoking cessation, potentially reflecting the influence of socioeconomic factors associated with varying educational backgrounds. All these findings highlight the complex interplay between socioeconomic, biological, and demographic factors in influencing smoking cessation success.
 
-Noticeably, pharmatherapy, as one of the controls, consistently demonstrated a stronger influence on abstinence outcomes than behaviorial treatment, which aligns with previous findings in the original study. `Var` exhibits significantly higher odds ratios across models, particularly in the Stepwise and Best Subset methods, underscoring its greater predictive effect on smoking cessation. In contrast, `BA` shows odds ratios close to 1, suggesting a more modest impact on the outcome.
+Noticeably, pharmacotherapy, as one of the controls, consistently demonstrated a stronger influence on abstinence outcomes than behaviorial treatment, which aligns with previous findings in the original study. `Var` exhibits significantly higher odds ratios across models, particularly in the Stepwise and Best Subset methods, underscoring its greater predictive effect on smoking cessation. In contrast, `BA` shows odds ratios close to 1, suggesting a more modest impact on the outcome.
 
 ```{r}
 # Summary table of coef
@@ -1561,7 +1563,17 @@ kable(
 
 # \textcolor{orange}{CONCLUSION}
 
+This study reexamined factors influencing smoking cessation among adults with MDD, focusing on two main objectives: identifying potential moderators of behavioral activation BA treatment effects on smoking abstinence and evaluating baseline predictors of cessation outcomes. For the moderator analysis, we utilized stepwise selection, elastic net, and best subset methods to explore interactions between BA and various baseline characteristics. Key variables like the FTCD score and readiness to quit emerged as plausible moderators, suggesting that the effectiveness of BASC may depend on individual differences in nicotine dependence and motivation to quit. Despite method-specific variations, these results underscore the complexity of identifying consistent moderators, though with a small sample size and numerous interaction terms.
+
+In the predictor-focused analysis, several baseline characteristics were examined for their predictive power in smoking cessation outcomes, including nicotine metabolism ratio (NMR), education, and race. Notably, NMR consistently showed a strong association with cessation, potentially indicating a biological influence on treatment success. Additionally, educational levels presented opposing odds ratios, with some levels being positively associated with cessation while others were negatively associated, possibly reflecting varying socio-economic backgrounds. This predictor analysis highlights the nuanced influences of socioeconomic, biological, and demographic factors on smoking cessation among individuals with MDD.
+
+Overall, regarding prediction performance of the three model selection methods employed, elastic net demonstrated the best calibration performance across both objectives, achieving the lowest Brier score and calibration error, while other methods provided slightly better discrimination as evidenced by higher AUCs. These findings suggest that elastic net would be a robust choice when calibration is prioritized, but stepwise and best subset approaches may offer value in contexts where discrimination is more critical. Given the small dataset, further research with larger samples and significance testing of individual predictors would enhance the reliability and generalizability of these conclusions.
+
 # \textcolor{orange}{LIMITATIONS}
+
+A primary limitation of this analysis is the small sample size, with only 300 observations split between training and test sets. This limited data size, combined with the inclusion of multiple interaction terms, exacerbates the "small n, big p" problem, where the number of predictors may outstrip the available data points, potentially leading to overfitting and instability in model estimates. 
+
+Additionally, the predictor selection process was based solely on criteria like AIC (for Stepwise Selection), cross-validation (for Elastic Net), or Mallow's $Cp$ (for Best Subset), focusing on optimizing overall model performance metrics, such as calibration and discrimination, rather than testing the individual significance of each variable. As a result, no formal p-values or statistical tests were assigned to assess the significance of individual variables. This approach limits our ability to make definitive claims about the significance of individual variables as verified moderators or predictors and instead relies on their contribution to the model’s overall predictive performance.
 
 # Consent, Data, and Code Availability
 
@@ -1569,7 +1581,6 @@ Primary data were provided by Dr. George Papandonatos from the Department of Bio
 
 # Reference
 <div id="refs"></div>
-
 
 
 \pagebreak
