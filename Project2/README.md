@@ -12,7 +12,7 @@ Building on a previous randomized, placebo-controlled study exploring factors in
 
 ## Methods
 
-We applied logistic regression to model the binary smoking abstinence outcome, implementing three selection methods to identify predictive variables: bidirectional stepwise selection using AIC, elastic net regression with cross-validation, and best subset selection with Mallow’s Cp criterion. Interaction terms were carefully incorporated, especially for factors hypothesized to moderate behavioral activation effects on abstinence. *Objective 1* included a comprehensive range of baseline variables and interaction terms with BA, while *Objective 2* focused solely on baseline predictors without interactions to assess their independent predictive effects. Calibration and discrimination metrics were used to evaluate model performance.     
+We applied logistic regression to model the binary smoking abstinence outcome and implemented three selection methods to identify moderating and predictive variables: bidirectional stepwise selection using AIC, elastic net regression with cross-validation, and best subset selection with Mallow’s Cp criterion. Interaction terms were carefully incorporated, especially for factors hypothesized to moderate behavioral activation effects on abstinence. *Objective 1* included a comprehensive range of baseline variables and interaction terms with BA, while *Objective 2* focused solely on baseline predictors without interactions to assess their independent predictive effects. Calibration and discrimination metrics were used to evaluate model performance.        
 
 ## Results and conclusion
 
