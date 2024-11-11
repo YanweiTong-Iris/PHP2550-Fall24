@@ -1072,7 +1072,6 @@ calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
 The performance metrics presented in **Table 5** demonstrate the relative strengths and weaknesses of each model selection method for capturing moderator effects on smoking abstinence. Elastic Net exhibited the lowest Brier score (0.1422) and calibration error (0.0677), indicating superior model calibration and a reduced prediction error compared to Stepwise and Best Subset. Moreover, Elastic Net achieved a balanced specificity (0.6351) and sensitivity (0.6875), suggesting a more robust discrimination capability across different abstinence probabilities. In contrast, the Stepwise model demonstrated a higher sensitivity (0.7500) but at the cost of reduced specificity (0.5270), implying a tendency toward over-predicting abstinence outcomes. The Best Subset model achieved the highest sensitivity (0.9375) but with markedly low specificity (0.3108), indicating that it may overfit to predict abstinence with lower precision across abstinence probabilities. The differences in calibration and discrimination metrics highlight Elastic Net’s ability to provide a well-calibrated model with balanced specificity and sensitivity, which may make it a preferable choice for models that aim to generalize well to unseen data.
 
 
-
 ```{r}
 test_outcome_numeric = as.numeric(test_outcome) - 1
 
@@ -1312,6 +1311,9 @@ model <- glm(formula,
 predictor_best_subset_coefs = coef(model)
 ```
 
+In examining the coefficients and odds ratios for baseline characteristics as predictors, the Nicotine Metabolism Ratio (`NMR`) stood out as a significant predictor, with high odds ratios in all models, particularly in the Stepwise selection method, indicating its potential strong impact on smoking cessation outcomes. Other demographic variables, such as race, showed generally low odds ratios (i.e., `raceOther` and `raceBlack`), suggesting possible barriers to cessation in certain groups. Additionally, the education indicators, `edu_merged2` and `edu_merged3`, present odds ratios that differ in directionality, with `edu_merged2` consistently showing OR < 1, while `edu_merged3` displays OR > 1 across methods. This may suggest that different levels of educational attainment may have opposing effects on the success likelihood of smoking cessation, potentially reflecting the influence of socioeconomic factors associated with varying educational backgrounds. All these findings highlight the complex interplay between socioeconomic, biological, and demographic factors in influencing smoking cessation success.
+
+Noticeably, pharmatherapy, as one of the controls, consistently demonstrated a stronger influence on abstinence outcomes than behaviorial treatment, which aligns with previous findings in the original study. `Var` exhibits significantly higher odds ratios across models, particularly in the Stepwise and Best Subset methods, underscoring its greater predictive effect on smoking cessation. In contrast, `BA` shows odds ratios close to 1, suggesting a more modest impact on the outcome.
 
 ```{r}
 # Summary table of coef
@@ -1368,6 +1370,10 @@ combined_df %>%
   )) %>%
   kable_styling(full_width = F, position = "center", font_size = 9)
 ```
+
+In terms of model performance, shown in **Table 7**, Elastic Net exhibited the best calibration metrics overall, with the lowest Brier score (0.1518) and calibration error (0.1118), indicating it achieves the most accurate probability estimates compared to the other two selection methods. However, both Stepwise and Best Subset methods demonstrated slightly better AUC values (0.6630 and 0.6605, respectively), suggesting they may provide stronger discrimination between abstinence outcomes. 
+
+Interestingly, the highest sensitivity was identical across all three methods at 0.8750, in contrast to the findings in *Objective 1*, where sensitivity varied more between methods. This convergence in sensitivity may suggest that when the model complexity is reduced, meaning focusing on baseline predictors without interaction terms, the sensitivity of each method aligns more closely, resulting in more consistent classification performance across methods. Overall, these results suggest that Elastic Net offers the most reliable calibration, while Stepwise and Best Subset maintain slightly better discrimination, balancing predictive needs depending on whether calibration or discrimination is prioritized.
 
 ```{r}
 predictor_prob_stepwise <- as.numeric(predict(predictor_stepwise_model,
