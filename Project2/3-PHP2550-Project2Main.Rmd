@@ -303,7 +303,7 @@ kable(table_race_menthol,
 
 ```
 
-Similarly, the exploratory interaction heatmaps showcased four selected examples of interactions that would be explored further in our analysis. These examples illustrated potential interactions that might make biological or statistical sense in the context of smoking cessation. For instance, the interaction between behavioral activation and MDD diagnosis is central to this study’s focus on using MDD-targeted treatments to aid smoking cessation. The interaction between income and education could reflect socioeconomic influences on smoking behaviors, while cigarette dependence (measured by FTCD score) and readiness to quit smoking could reveal motivational factors in cessation attempts. Additionally, nicotine metabolism ratio (NMR) versus sex could highlight a possible biological interaction that may affect the body’s response to nicotine between genders. As shown in **Figure 1**, the color gradients indicating proportion appear to confirm that there might be potential synergies between these variables. This visual evidence supported the inclusion of these interactions for further exploration, as they may capture meaningful relationships that influence smoking cessation outcomes.In the methods section, we would discuss a more comprehensive rationale for including or excluding certain set of interaction terms, categorizing some as moderators specifically for BA effects and others as covariates, to capture these multidimensional influences on the smoking abstinence outcome.
+Similarly, the exploratory interaction heatmaps showcased four selected examples of interactions that would be explored further in our analysis. These examples illustrated potential interactions that might make biological or statistical sense in the context of smoking cessation. For instance, the interaction between behavioral activation and MDD diagnosis is central to this study’s focus on using MDD-targeted treatments to aid smoking cessation. The interaction between income and education could reflect socioeconomic influences on smoking behaviors, while cigarette dependence (measured by FTCD score) and readiness to quit smoking could reveal motivational factors in cessation attempts. Additionally, nicotine metabolism ratio (NMR) versus sex could highlight a possible biological interaction that may affect the body’s response to nicotine between genders. As shown in **Figure 1**, the color gradients indicating proportion appear to confirm that there might be potential synergies between these variables. This visual evidence supported the inclusion of these interactions for further exploration, as they may capture meaningful relationships that influence smoking cessation outcomes.In the methods section, we would discuss a more comprehensive rationale for including a certain set of interaction terms, categorizing some as moderators specifically for BA effects and others as covariates, to capture these multidimensional influences on the smoking abstinence outcome.
 
 ```{r, fig.width = 10, fig.height =6, out.width="100%", fig.align='center'}
 # Define function to bin continuous variables and create proportion heatmaps
@@ -370,7 +370,7 @@ plot_grid(title, final_plot, ncol = 1, rel_heights = c(0.1, 1))
 missing_summary <- data %>%
   summarise(across(everything(), ~ sum(is.na(.)), .names = "{col}")) %>%
   pivot_longer(cols = everything(), names_to = "Variable", values_to = "Number") %>%
-  mutate(Pct = (Number / nrow(data)) * 100) %>%
+  mutate(Percent = (Number / nrow(data)) * 100) %>%
   filter(Number > 0)  # Exclude variables with 0 missingness
 
 # Define a named vector with old and new names for variables
@@ -395,14 +395,14 @@ total_rows_with_missing_pct <- (total_rows_with_missing / nrow(data)) * 100
 
 
 missing_summary <- missing_summary %>%
-  arrange(desc(Pct)) %>%
-  mutate(Pct = sprintf("%.2f%%", Pct)) 
+  arrange(desc(Percent)) %>%
+  mutate(Percent = sprintf("%.2f%%", Percent)) 
 
 # Combine the total missingness row with the summary table
 total_missing_row <- tibble(
   Variable = "Participants with any missingness",
   Number = total_rows_with_missing,
-  Pct = sprintf("%.2f%%", total_rows_with_missing_pct)
+  Percent = sprintf("%.2f%%", total_rows_with_missing_pct)
 )
 
 missing_summary <- bind_rows(total_missing_row, missing_summary)
@@ -410,7 +410,7 @@ missing_summary <- bind_rows(total_missing_row, missing_summary)
 # Display the final table
 missing_summary %>%
   kable(
-    col.names = c("Variable", "Number", "Pct"), 
+    col.names = c("Variable", "Number", "Percent"), 
     caption = "Summary of Missing Values"
   ) %>%
   kable_styling(full_width = F, position = "center", font_size = 9)
@@ -499,6 +499,15 @@ To evaluate model performances, we used a combination of calibration and discrim
 # \textcolor{orange}{RESULTS}
 
 ## *Objective 1*: Baseline Characteristics as Potential Moderators 
+
+In **Table 4**, we observed the coefficients and corresponding odds ratios selected from three model selection methods, with particular focus on behavioral activation and its interaction terms. `BA` was consistently included across all methods, as was pharmacotherapy (`Var`), given their forced inclusion as primary predictor and control. Among the interaction terms with `BA`, several variables demonstrated potential moderator effects that might influence BA's effectiveness in smoking cessation among individuals with MDD, although there is noticeable variation in terms selected by each method. 
+
+Specifically, the interaction with FTCD score may suggest that nicotine dependence level could affect how responsive individuals are to BASC, with varying levels of dependence potentially modifying the treatment effect. Similarly, current vs. past MDD status appears as a logical moderator, as BA is designed to alleviate depressive symptoms, which could make it more effective for individuals experiencing active symptoms. The interaction with readiness to quit smoking may suggest that motivational factors might influence how beneficial BA is; those who are more prepared to quit may respond differently to BASC. Anhedonia as a moderator also aligns well, given that BA aims to counteract reduced pleasure in activities, a common symptom in depression. Finally, race (Hispanic) as an interaction term may reflect unique socio-cultural factors that could impact the treatment response to BASC. These interaction terms, chosen by at least one method, underscore relevant factors that may affect psychotherapy's success in achieving smoking cessation.
+
+Noticeably, the inclusion of Anhedonia (`shaps_score_pq1)` and Race Black (`raceBlack`) across three methods suggests these two variables may play a meaningful role in the overall relationship between BA and smoking cessation. For example, individuals with higher anhedonia levels may require more intensive or targeted interventions to achieve abstinence, highlighting the importance of tailoring BA to address depressive symptoms. Similarly, the repeated selection of Race Black as a covariate implies that racial background could affect treatment outcomes, potentially due to sociocultural or economic factors. 
+
+For the majority of other interaction terms, selection varied by method, with little overlap between the chosen variables, reflecting different approaches and model assumptions inherent in Stepwise, Elastic Net, and Best Subset selection. This variation emphasizes the complexity of finding consistent moderators and covariates and the need for careful consideration of each method's contributions.
+
 ```{r}
 # Logistic regression with stepwise selection
 # Define the outcome and variables in the model
@@ -715,6 +724,7 @@ model <- glm(formula,
              family = binomial)
 best_subset_coefs = coef(model)
 ```
+
 
 
 
@@ -1059,43 +1069,9 @@ calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
 
 ```
 
-```{r, fig.width = 10, fig.height = 10, out.width="80%", fig.align='center'}
-plots_stepwise = arrangeGrob(
-  calib_error_bar_stepwise, calib_loess_stepwise, ROC_stepwise,
-  ncol = 3,
-  top = textGrob("Stepwise Selection",
-                 gp = gpar(fontface = "bold", fontsize = 14)
-))
+The performance metrics presented in **Table 5** demonstrate the relative strengths and weaknesses of each model selection method for capturing moderator effects on smoking abstinence. Elastic Net exhibited the lowest Brier score (0.1422) and calibration error (0.0677), indicating superior model calibration and a reduced prediction error compared to Stepwise and Best Subset. Moreover, Elastic Net achieved a balanced specificity (0.6351) and sensitivity (0.6875), suggesting a more robust discrimination capability across different abstinence probabilities. In contrast, the Stepwise model demonstrated a higher sensitivity (0.7500) but at the cost of reduced specificity (0.5270), implying a tendency toward over-predicting abstinence outcomes. The Best Subset model achieved the highest sensitivity (0.9375) but with markedly low specificity (0.3108), indicating that it may overfit to predict abstinence with lower precision across abstinence probabilities. The differences in calibration and discrimination metrics highlight Elastic Net’s ability to provide a well-calibrated model with balanced specificity and sensitivity, which may make it a preferable choice for models that aim to generalize well to unseen data.
 
-plots_enet = arrangeGrob(
-  calib_error_bar_enet, calib_loess_enet, ROC_enet,
-  ncol = 3,
-  top = textGrob("Elastic Net",
-                 gp = gpar(fontface = "bold", fontsize = 14)
-))
 
-plots_best_subset = arrangeGrob(
-  calib_error_bar_best_subset, calib_loess_best_subset, ROC_best_subset,
-  ncol = 3,
-  top = textGrob("Best Subset Selection", 
-                 gp = gpar(fontface = "bold", fontsize = 14)
-))
-
-# Bold the main title
-main_title <- textGrob(
-  "Figure 2: Calibration Plots with Error Bars and LOESS and ROC Curves (Moderator Effects)",
-  gp = gpar(fontsize = 16) 
-)
-
-# Arrange everything with the bold title
-grid.arrange(
-  plots_stepwise,
-  plots_enet,
-  plots_best_subset,
-  nrow = 3,
-  top = main_title
-)
-```
 
 ```{r}
 test_outcome_numeric = as.numeric(test_outcome) - 1
@@ -1177,6 +1153,46 @@ colnames(df_performance) <- c("Stepwise", "Elastic Net", "Best Subset")
 kable(
   df_performance, 
   caption = "Calibration and Discrimination Metrics Moderator Effects Modeling"
+)
+```
+
+The calibration and ROC curves in **Figure 2** further illustrate these performance characteristics. The calibration plots for Elastic Net closely align with the ideal diagonal line, suggesting that its predicted abstinence probabilities align well with observed outcomes across different probability levels. Additionally, the LOESS curve for Elastic Net generally tracks the ideal line with only minor deviations, reinforcing its effective calibration. In comparison, Stepwise and Best Subset exhibit some misalignment in their calibration plots, with deviations that suggest over- or under-confidence in specific probability ranges. The ROC curves also support Elastic Net's performance, as it demonstrates a moderate AUC of 0.6765, surpassing Stepwise and Best Subset, which achieved AUCs of 0.6503 and 0.6174, respectively. Elastic Net's ROC curve reflects a stronger balance between true positive and false positive rates, contributing to its more consistent predictive performance in modeling moderator effects.
+
+```{r, fig.width = 10, fig.height = 10, out.width="80%", fig.align='center'}
+plots_stepwise = arrangeGrob(
+  calib_error_bar_stepwise, calib_loess_stepwise, ROC_stepwise,
+  ncol = 3,
+  top = textGrob("Stepwise Selection",
+                 gp = gpar(fontface = "bold", fontsize = 14)
+))
+
+plots_enet = arrangeGrob(
+  calib_error_bar_enet, calib_loess_enet, ROC_enet,
+  ncol = 3,
+  top = textGrob("Elastic Net",
+                 gp = gpar(fontface = "bold", fontsize = 14)
+))
+
+plots_best_subset = arrangeGrob(
+  calib_error_bar_best_subset, calib_loess_best_subset, ROC_best_subset,
+  ncol = 3,
+  top = textGrob("Best Subset Selection", 
+                 gp = gpar(fontface = "bold", fontsize = 14)
+))
+
+# Bold the main title
+main_title <- textGrob(
+  "Figure 2: Calibration Plots with Error Bars and LOESS and ROC Curves (Moderator Effects)",
+  gp = gpar(fontsize = 16) 
+)
+
+# Arrange everything with the bold title
+grid.arrange(
+  plots_stepwise,
+  plots_enet,
+  plots_best_subset,
+  nrow = 3,
+  top = main_title
 )
 ```
 
