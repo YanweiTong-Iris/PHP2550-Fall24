@@ -12,9 +12,9 @@ link-citations: yes
 header-includes:
   - "\\usepackage{xcolor}"
 abstract: |
-  **Purpose:** "to examine baseline variables as potential moderators of the effects of behavioral treatment on end-of-treatment (EOT) abstinence and evaluate baseline variables as predictors of abstinence, controlling for behavioral treatment and pharmacotherapy"  
+  **Purpose:** Building on a previous randomized, placebo-controlled study exploring factors influencing smoking cessation among adults with major depressive disorder (MDD), this project reexamined data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
   
-  **Methods**: Bidirectional Stepwise Selection, Elastic Net Regression, and Best Subset Selection     
+  **Methods**: we applied logistic regression to model the binary smoking abstinence outcome, implementing three selection methods to identify predictive variables: bidirectional stepwise selection using AIC, elastic net regression with cross-validation, and best subset selection with Mallow’s Cp criterion. Interaction terms were carefully incorporated, especially for factors hypothesized to moderate behavioral activation effects on abstinence. *Objective 1* included a comprehensive range of baseline variables and interaction terms with BA, while *Objective 2* focused solely on baseline predictors without interactions to assess their independent predictive effects. Calibration and discrimination metrics were used to evaluate model performance.     
   
   **Results and conclusion:**     
   
@@ -61,6 +61,8 @@ library(MASS)
 library(survey)
 library(glmulti)
 library(leaps)
+library(RColorBrewer) 
+library(cowplot)
 ```
 
 ```{r}
@@ -112,13 +114,18 @@ This regression analysis project, conducted in collaboration with Dr. George Pap
 
 Dr. Papandonatos' previous randomized, placebo-controlled study (@hitsman2023efficacy), which included 300 adult smokers with either current or past MDD, employed a 2x2 factorial design and compared behavioral activation for smoking cessation (BASC) against standard treatment (ST) and varenicline versus placebo. The multi-center study found no significant differences in abstinence outcomes between BASC and ST, regardless of varenicline use. However, varenicline significantly outperformed placebo at the 27-week follow-up, achieving a quit rate of 16.2\% compared to 7.5\% for the placebo group. 
 
-Building on the original study, this project will reexamine data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
+Building on the original study, this project would reexamine data from the same trial to accomplish the following two main objectives: 1) identify baseline variables that may moderate the impact of behavioral treatments on end-of-treatment (EOT) smoking abstinence, and 2) evaluate baseline variables as predictors of abstinence outcomes, accounting for the effects of both behavioral treatments and pharmacotherapy. 
 
 # \textcolor{orange}{DATA}
 
 ## Data Overview 
 
 The study population of the RCT consists of 300 adult smokers with a history of current or past MDD. 1) Sociodemographic, 2) smoking-related, and 3) psychiatric characteristics of the participants were collected at baseline and displayed in **Table 1**. Demographics are age, sex, race, income, education; the smoking behaviors/measurements include key statistics like Fagerstrom Test for Cigarette Dependence (FTCD) score, Nicotine Metabolism Ratio (NMR), and indicator for exclusive Mentholated cigarette user; and psychiatric disgnotic and treatment history . The participants were randomized into four groups: BASC with placebo (`BASC+placebo`), BASC with varenicline (`BASC+Varenicline`), ST with placebo (`ST+placebo`), and ST with varenicline (`ST+Varenicline`). 
+
+Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
+
+Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
+
 
 \newpage
 \begin{landscape}
@@ -258,11 +265,6 @@ table1_data %>%
 \newpage
 
 
-Overall, the randomization process appears successful, as key variables such as demograohic characteristics, smoking intensity (cigarettes per day), and psychiatric measures like the DSM-5 diagnosis and anhedonia scores showed similar distributions across the four treatment arms with *p*-value much greater than 5\%, suggesting that participant characteristics were well-balanced across treatment arms, as expected in an RCT. This balance across groups reinforces the original study's internal validity, as any differences in outcomes can be more confidently attributed to the interventions rather than baseline differences in participant characteristics.
-
-Regarding education, as shown in **Table 1**, two of the lowest education levels— grade school and some high school— had very few participant counts (1 and 16, respectively). To ensure adequate sample size and meaningful comparisons across education categories, we merged the first three levels (grade school, some high school, and high school graduate or GED) into a single category, considered as "High School and Below." This aggregation would improve the interpretability of the data by creating a more substantial subgroup and reducing variability, allowing for more reliable statistical analyses.
-
-
 
 ```{r}
 # Create a new variable that contains the 3 first levels of edu
@@ -274,6 +276,9 @@ data <- data %>%
   )))
 
 ```
+
+
+Regarding potential interaction effects between variables in the dataset, race versus exclusive menthol cigarette use would be a good example. As shown in the contingency table, the distribution across racial groups is not balanced, as indicated by the significant Chi-square test statistic, suggesting that certain racial groups (Black in this case) might have a stronger inclination towards exclusive menthol use. This imbalance in distribution underscores the importance of considering racial demographics in our analysis, as they may interact with other smoking-related behaviors or biological factors.
 
 
 ```{r}
@@ -293,9 +298,70 @@ kable(table_race_menthol,
       col.names = c("Non-Menthol-Only", "Menthol-Only"),
       row.names = TRUE) %>%
    footnote(chi_square_text,
-            footnote_as_chunk = FALSE)
+            footnote_as_chunk = FALSE) %>%
+  kable_styling(full_width = F, position = "center", font_size = 9)
 
 ```
+
+Similarly, the exploratory interaction heatmaps showcased four selected examples of interactions that would be explored further in our analysis. These examples illustrated potential interactions that might make biological or statistical sense in the context of smoking cessation. For instance, the interaction between behavioral activation and MDD diagnosis is central to this study’s focus on using MDD-targeted treatments to aid smoking cessation. The interaction between income and education could reflect socioeconomic influences on smoking behaviors, while cigarette dependence (measured by FTCD score) and readiness to quit smoking could reveal motivational factors in cessation attempts. Additionally, nicotine metabolism ratio (NMR) versus sex could highlight a possible biological interaction that may affect the body’s response to nicotine between genders. As shown in **Figure 1**, the color gradients indicating proportion appear to confirm that there might be potential synergies between these variables. This visual evidence supported the inclusion of these interactions for further exploration, as they may capture meaningful relationships that influence smoking cessation outcomes.In the methods section, we would discuss a more comprehensive rationale for including or excluding certain set of interaction terms, categorizing some as moderators specifically for BA effects and others as covariates, to capture these multidimensional influences on the smoking abstinence outcome.
+
+```{r, fig.width = 10, fig.height =6, out.width="100%", fig.align='center'}
+# Define function to bin continuous variables and create proportion heatmaps
+create_heatmap <- function(data, var1, var2, title, bin_var1 = FALSE, 
+                           bin_var2 = FALSE) {
+  # Remove NA values for the specified columns
+  data <- data %>% drop_na(all_of(c(var1, var2)))
+  
+  # Optionally bin continuous variables
+  if (bin_var1) data <- data %>% 
+      mutate(!!sym(var1) := cut(!!sym(var1), breaks = 4))  
+  if (bin_var2) data <- data %>% 
+      mutate(!!sym(var2) := cut(!!sym(var2), breaks = 4))  
+  
+  # Calculate proportions
+  prop_data <- data %>%
+    group_by(!!sym(var1), !!sym(var2)) %>%
+    summarise(count = n(), .groups = 'drop') %>%
+    mutate(prop = count / sum(count))
+  
+  ggplot(prop_data, aes_string(x = var1, y = var2)) +
+    geom_tile(aes(fill = prop), color = "white") +
+    scale_fill_gradientn(colors = brewer.pal(9, "Oranges"), name = "Proportion") +
+    labs(title = title, x = var1, y = var2) +
+    theme_minimal(base_size = 8) +  # Set smaller base font size
+    theme(
+      plot.title = element_text(size = 12, hjust = 0.5),
+      axis.text.x = element_text(size = 9),
+      axis.text.y = element_text(size = 9),
+      axis.title.y = element_text(vjust = 0.5),
+      legend.key.size = unit(0.45, "cm"),
+      plot.margin = margin(1, 1, 1, 1)  # Add space around the plot
+    )
+}
+
+# Create the plots with adjusted text and layout
+p1 <- create_heatmap(data, "BA", "mde_curr", "BA vs. MDD History")
+p2 <- create_heatmap(data, "inc", "edu_merged", "Income vs. Education")
+p3 <- create_heatmap(data, "NMR", "sex_ps", "NMR vs. Sex", bin_var1 = TRUE)  
+p4 <- create_heatmap(data, "ftcd_score", "readiness", 
+                     "FTCD Score vs. Readiness to Quit Smoking", 
+                     bin_var1 = TRUE, bin_var2 = TRUE) 
+
+# Arrange the plots in a grid with a title using cowplot
+final_plot <- plot_grid(p1, p2, p3, p4, ncol = 2, align = "hv", 
+                        rel_widths = c(1, 1), rel_heights = c(1, 1))
+
+# Add a title to the entire grid
+title <- ggdraw() + 
+  draw_label("Figure 1: Exploratory Interaction Heatmaps-- Moderator and Covariate Examples", 
+              size = 16)
+
+# Combine title and grid plot
+plot_grid(title, final_plot, ncol = 1, rel_heights = c(0.1, 1))
+```
+
+
+
 ## Data Missingness and Imputation
 
 ```{r}
@@ -346,7 +412,8 @@ missing_summary %>%
   kable(
     col.names = c("Variable", "Number", "Pct"), 
     caption = "Summary of Missing Values"
-  )
+  ) %>%
+  kable_styling(full_width = F, position = "center", font_size = 9)
 ```
 
 The overall missingness in the dataset is approximately 20\%, which exceeds the commonly accepted 5\% threshold for data completeness. This level of missing data could compromise the validity of the analysis if left unaddressed, as it may lead to biased results or loss of valuable information. To preserve the dataset's integrity and maintain statistical power, we opted to impute the missing values. We utilized the Multiple Imputation by Chained Equations (MICE) method, which allows for flexible handling of various data types and patterns of missingness, thereby maximizing the use of available information and improving the robustness of the analyses.
@@ -401,11 +468,11 @@ This probability-based output provides an intuitive interpretation of the model'
 
 ## Variable Inclusion Criteria for Full Models
 
-For objective 1, psychotherapy (`BA`) is the primary predictor of interest, while pharmacotherapy (`Var`) is treated as a control variable. Thus, we ensured to include both of the treatments in all models as consistent factors. The goal of this analysis is to explore how various baseline characteristics might moderate the effect of behavioral treatment on smoking cessation/abstinence outcomes. To achieve this, we included a range of interaction terms involving `BA` and key sociodemographic, smoking-related, and psychiatric variables as potential moderators. These interaction terms would allow us to examine how different participant characteristics may influence the effectiveness of behavoriol activation in promoting abstinence. However, we excluded certain terms, such as interactions between `BA` and variables like indicator of smoking with 5 mins of waking up (`ftcd.5mins`) or cigarettes per day (`cpd_ps`), because these measures are components of the broader FTCD score (`ftcd_score`) and thus would provide redundant information. By prioritizing unique, non-overlapping terms, we aimed to create a comprehensive yet parsimonious model.
+For *Objective 1*, psychotherapy (`BA`) is the primary predictor of interest, while pharmacotherapy (`Var`) is treated as a control variable. Thus, we ensured to include both of the treatments in all models as consistent factors. The goal of this analysis is to explore how various baseline characteristics might moderate the effect of behavioral treatment on smoking cessation/abstinence outcomes. To achieve this, we included a range of interaction terms involving `BA` and key sociodemographic, smoking-related, and psychiatric variables as potential moderators. These interaction terms would allow us to examine how different participant characteristics may influence the effectiveness of behavoriol activation in promoting abstinence. However, we excluded certain terms, such as interactions between `BA` and variables like indicator of smoking with 5 mins of waking up (`ftcd.5mins`) or cigarettes per day (`cpd_ps`), because these measures are components of the broader FTCD score (`ftcd_score`) and thus would provide redundant information. By prioritizing unique, non-overlapping terms, we aimed to create a comprehensive yet parsimonious model.
 
 In addition to `BA` interaction terms as potential moderators, we included other interaction terms involving `Var` and various baseline characteristics as covariates. We belived these covariate interaction terms shall be considered important, as they account for known associations that could impact treatment outcomes. For instance, as previously discussed, there was a recognized relationship between race and menthol-only cigarette use, which could affect smoking cessation success. Similarly, the synergy between factors like baseline readiness to quit smoking (`readiness`), Nicotine Metabolism Ratio (`NMR`), and MDD history (`mde_curr`) could have critical influences smoking behavior and mental health status and have plausible biological or statistical interactions with other sociodemographic and smoking-related variables. These interactions reflect meaningful covariate effects that contribute to a more nuanced understanding of how different factors influence treatment outcomes, enabling a more robust analysis of predictors and moderators in the context of smoking cessation.
 
-For objective 2, the focus shifts to using baseline variables solely as predictors of smoking cessation outcomes, rather than as covariates or moderators. In this context, `BA` and `Var` are included as control variables across all models to account for the effects of behavioral and pharmacotherapy interventions. However, our goal here is to examine the predictive power of baseline characteristics independently, so we do not include any interaction terms. This approach simplifies the model by isolating the main effects of each baseline variable without adding complexity through interactions.
+For *Objective 2*, the focus shifts to using baseline variables solely as predictors of smoking cessation outcomes, rather than as covariates or moderators. In this context, `BA` and `Var` are included as control variables across all models to account for the effects of behavioral and pharmacotherapy interventions. However, our goal here is to examine the predictive power of baseline characteristics independently, so we do not include any interaction terms. This approach simplifies the model by isolating the main effects of each baseline variable without adding complexity through interactions.
 
 ## Model Selection
 ### 1) Bidirectional Stepwise Selection
@@ -431,7 +498,7 @@ To evaluate model performances, we used a combination of calibration and discrim
 
 # \textcolor{orange}{RESULTS}
 
-## Baseline Characteristics as Potential Moderators 
+## *Objective 1*: Baseline Characteristics as Potential Moderators 
 ```{r}
 # Logistic regression with stepwise selection
 # Define the outcome and variables in the model
@@ -502,12 +569,14 @@ scope_list <- list(
 )
 
 # Fit logistic regression model with stepwise selection
+set.seed(2024)
 stepwise_model <- step(
   glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
   scope = scope_list,
   direction = "both",
   trace = 0
 )
+stepwise_coefs = coef(stepwise_model)
 ```
 
 
@@ -634,77 +703,85 @@ reg_summary = summary(regsubsets_model)
 cp_min = which.min(reg_summary$cp)
 best_subset_coefs = coef(regsubsets_model, cp_min)
 best_subset_names = names(coef(regsubsets_model, cp_min))
+
+# Extract variable names from best subset selection and 
+# fit a glm model with the specified variables
+selected_vars <- names(best_subset_coefs)[-1]  # Exclude intercept
+formula <- as.formula(paste("abst ~", paste(selected_vars, collapse = " + ")))
+
+model <- glm(formula, 
+             data = as.data.frame(cbind(train_variables_dummy_include, 
+                       abst = as.numeric(train_outcome) -1)), 
+             family = binomial)
+best_subset_coefs = coef(model)
 ```
 
 
 
 ```{r}
 # Summary table of coef
-# Stepwise coefficients
-stepwise_coefs <- coef(stepwise_model)
+large_threshold <- 100
+
+# Calculate OR for each coefficient for each method and rename columns correctly
 stepwise_df <- data.frame(
   variable = names(stepwise_coefs),
-  `Stepwise` = as.numeric(stepwise_coefs)
+  `Stepwise Coef` = as.numeric(stepwise_coefs),
+  `Stepwise OR` = exp(as.numeric(stepwise_coefs))
 )
 
-# ENET coefficients 
 enet_df <- result_table_enet %>%
-  rename(`Elastic Net` = Coefficient)
+  rename(`Elastic Net Coef` = Coefficient) %>%
+  mutate(`Elastic Net OR` = exp(`Elastic Net Coef`))
 
-# Best subset coefficients
 best_subset_df <- data.frame(
   variable = names(best_subset_coefs),
-  `Best Subset` = as.numeric(best_subset_coefs)
+  `Best Subset Coef` = as.numeric(best_subset_coefs),
+  `Best Subset OR` = exp(as.numeric(best_subset_coefs))
 )
 
-# Merge all into one table based on variable names
+# Merge all data frames based on variable names
 combined_df <- full_join(stepwise_df, enet_df, by = "variable") %>%
   full_join(best_subset_df, by = "variable") %>%
-  mutate(across(where(is.numeric), ~ round(.x, 4)))
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  mutate(across(where(is.numeric), ~ ifelse(as.numeric(.) > large_threshold, "*", .)))
 
 # Remove the intercept row
 combined_df <- combined_df[combined_df$variable != "(Intercept)", ]
 
-colnames(combined_df) <- gsub("Best.Subset", "Best Subset", colnames(combined_df))
-```
-
-```{r}
+# Standardize interaction terms by sorting them alphabetically
 combined_df <- combined_df %>%
   mutate(
     variable = sapply(variable, function(x) {
-      # Split each interaction term into components
       terms <- unlist(strsplit(x, ":"))
-      # Sort alphabetically and rejoin with ":"
       if (length(terms) > 1) {
         paste(sort(terms), collapse = ":")
       } else {
-        x  # If not an interaction term, keep it as is
+        x
       }
     })
   )
 
-combined_df <- combined_df %>%
-  mutate(across(c(Stepwise, `Elastic Net`, `Best Subset`), 
-                ~ as.numeric(as.character(.))))
-
-
 # Combine rows with the same standardized interaction term names
-# Summing the coefficients for duplicate terms (or use mean instead if averaging is preferred)
 combined_df <- combined_df %>%
   group_by(variable) %>%
-  summarize(across(c(`Stepwise`, `Elastic Net`, `Best Subset`), sum, na.rm = TRUE)) %>%
+  summarize(across(everything(), ~ ifelse(is.numeric(.), sum(as.numeric(.), na.rm = TRUE), .))) %>%
   ungroup()
 
-# Replace NA values with an empty space
+# Replace zeroes and any remaining NAs with an empty space for readability
 combined_df <- combined_df %>%
-  mutate(across(c(Stepwise, `Elastic Net`, `Best Subset`), ~ ifelse(. == 0, " ", .)))
+  mutate(across(where(is.numeric), ~ ifelse(. == 0, "", .))) %>%
+  replace(is.na(.), " ")
 
+# Display the final combined table with grouped headers
+combined_df %>%
+  kable(row.names = F, 
+        col.names = c("Variable", "Coef", "OR", "Coef", "OR", "Coef", "OR"),
+        caption = "Summary of Coefficients and Odds Ratios for Potential Moderator Effects across Model Selection Methods") %>%
+  add_header_above(c(" " = 1, "Stepwise" = 2, "Elastic Net" = 2, "Best Subset" = 2)) %>%
+  kable_styling(full_width = F, position = "center", font_size = 9)
 
-# Display the final combined table
-kable(combined_df, row.names = F,
-      caption = "Summary of Coefficients for Potential Moderator Effects 
-      across Model Selection Methods")
 ```
+
 
 
 ```{r}
@@ -972,7 +1049,8 @@ calib_data <- calib_data %>%
 calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
   # Flexible calibration (Loess)
   geom_line(aes(y = loess_pred), color = "blue", linetype = "dashed") +  
-  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), alpha = 0.2, fill = "grey") +
+  geom_ribbon(aes(ymin = loess_ci_lower, ymax = loess_ci_upper), 
+              alpha = 0.2, fill = "grey") +
   geom_abline(intercept = 0, slope = 1, color = "red") +  # Perfect calibration line
   labs(x = "Predicted Probability of Smoking Abstinence", 
        y = "Actual Smoking Abstinence") +
@@ -981,31 +1059,31 @@ calib_loess_best_subset = ggplot(calib_data, aes(x = predicted, y = observed)) +
 
 ```
 
-```{r, fig.width = 10, fig.height = 10}
+```{r, fig.width = 10, fig.height = 10, out.width="80%", fig.align='center'}
 plots_stepwise = arrangeGrob(
   calib_error_bar_stepwise, calib_loess_stepwise, ROC_stepwise,
   ncol = 3,
   top = textGrob("Stepwise Selection",
-                 gp = gpar(fontface = "bold", fontsize = 13)
+                 gp = gpar(fontface = "bold", fontsize = 14)
 ))
 
 plots_enet = arrangeGrob(
   calib_error_bar_enet, calib_loess_enet, ROC_enet,
   ncol = 3,
   top = textGrob("Elastic Net",
-                 gp = gpar(fontface = "bold", fontsize = 13)
+                 gp = gpar(fontface = "bold", fontsize = 14)
 ))
 
 plots_best_subset = arrangeGrob(
   calib_error_bar_best_subset, calib_loess_best_subset, ROC_best_subset,
   ncol = 3,
   top = textGrob("Best Subset Selection", 
-                 gp = gpar(fontface = "bold", fontsize = 13)
+                 gp = gpar(fontface = "bold", fontsize = 14)
 ))
 
 # Bold the main title
 main_title <- textGrob(
-  "Figure 1: Calibration Plots with Error Bars and LOESS and ROC Curves (Moderator Effects)",
+  "Figure 2: Calibration Plots with Error Bars and LOESS and ROC Curves (Moderator Effects)",
   gp = gpar(fontsize = 16) 
 )
 
@@ -1103,7 +1181,7 @@ kable(
 ```
 
 
-## Baseline Characteristics as Potential Predictors
+## *Objective 2*: Baseline Characteristics as Potential Predictors
 ```{r}
 predictor_names <- c("Var", "BA", "age_ps", "sex_ps", "inc", "edu_merged", "race",
                      "ftcd_score", "ftcd.5.mins", "bdi_score_w00", "cpd_ps",
@@ -1127,6 +1205,7 @@ scope_list <- list(
 )
 
 # Fit logistic regression model with stepwise selection
+set.seed(2024)
 predictor_stepwise_model <- step(
   glm(formula = abst ~ Var + BA, data = train_data, family = "binomial"),
   scope = scope_list,
@@ -1189,6 +1268,7 @@ predictor_result_table_enet <- data.frame(
 ```
 
 ```{r}
+set.seed(2024)
 predictor_regsubsets_model <-
     regsubsets(y = train_outcome,
                x = train_predictors_dummy_include,
@@ -1197,35 +1277,49 @@ predictor_regsubsets_model <-
                force.in = c("Var1", "BA1"),
                force.out = NULL,
                really.big = T,
-               method = "seqrep")
+               method = "exhaustive")
 
 predictor_reg_summary = summary(predictor_regsubsets_model)
 cp_min = which.min(predictor_reg_summary$cp)
 predictor_best_subset_coefs = coef(predictor_regsubsets_model, cp_min)
 predictor_best_subset_names = names(coef(predictor_regsubsets_model, cp_min))
+
+# Extract variable names from best subset selection and 
+# fit a glm model with the specified variables
+selected_vars <- names(predictor_best_subset_coefs)[-1]  # Exclude intercept
+formula <- as.formula(paste("abst ~", paste(selected_vars, collapse = " + ")))
+
+model <- glm(formula, 
+             data = as.data.frame(cbind(train_predictors_dummy, 
+                       abst = as.numeric(train_outcome) -1)), 
+             family = binomial)
+predictor_best_subset_coefs = coef(model)
 ```
 
 
 ```{r}
 # Summary table of coef
-# Stepwise coefficients
+# Stepwise coefficients and OR
 stepwise_coefs <- coef(predictor_stepwise_model)
 stepwise_df <- data.frame(
   variable = names(stepwise_coefs),
-  `Stepwise` = as.numeric(stepwise_coefs)
+  `Stepwise Coef` = as.numeric(stepwise_coefs),
+  `Stepwise OR` = exp(as.numeric(stepwise_coefs))
 )
 
-# ENET coefficients 
+# Elastic Net coefficients and OR
 enet_df <- predictor_result_table_enet %>%
-  rename(`Elastic Net` = Coefficient)
+  rename(`Elastic Net Coef` = Coefficient) %>%
+  mutate(`Elastic Net OR` = exp(`Elastic Net Coef`))
 
-# Best subset coefficients
+# Best Subset coefficients and OR
 best_subset_df <- data.frame(
   variable = names(predictor_best_subset_coefs),
-  `Best Subset` = as.numeric(predictor_best_subset_coefs)
+  `Best Subset Coef` = as.numeric(predictor_best_subset_coefs),
+  `Best Subset OR` = exp(as.numeric(predictor_best_subset_coefs))
 )
 
-# Merge all into one table based on variable names
+# Merge all data frames based on variable names
 combined_df <- full_join(stepwise_df, enet_df, by = "variable") %>%
   full_join(best_subset_df, by = "variable") %>%
   mutate(across(where(is.numeric), ~ round(.x, 4)))
@@ -1236,19 +1330,27 @@ combined_df <- combined_df[combined_df$variable != "(Intercept)", ]
 # Replace NA values with an empty space
 combined_df[is.na(combined_df)] <- " "
 
-colnames(combined_df) <- gsub("Best.Subset", "Best Subset", colnames(combined_df))
-
-# enforce predictor print-out order
+# Enforce predictor print-out order, keeping BA1 and Var1 at the top
 combined_df <- combined_df %>%
   arrange(
     factor(variable, levels = c("BA1", "Var1")),  # Keep BA1 and Var1 at the top
     variable                                      # Sort the rest alphabetically
   )
 
-# Display the final combined table
-kable(combined_df, row.names = F,
-      caption = "Summary of Coefficients for Potential Predictor Effects 
-      across Model Selection Methods")
+# Create the table with grouped headers
+combined_df %>%
+  kable(
+    row.names = F,
+    col.names = c("Variable", "Coef", "OR", "Coef", "OR", "Coef", "OR"),
+    caption = "Summary of Coefficients and Odds Ratios for Potential Predictor Effects across Model Selection Methods"
+  ) %>%
+  add_header_above(c(
+    " " = 1,
+    "Stepwise" = 2,
+    "Elastic Net" = 2,
+    "Best Subset" = 2
+  )) %>%
+  kable_styling(full_width = F, position = "center", font_size = 9)
 ```
 
 ```{r}
