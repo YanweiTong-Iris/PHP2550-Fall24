@@ -1142,7 +1142,7 @@ colnames(df_performance) <- c("Stepwise", "Elastic Net", "Best Subset")
 # Display the final table
 kable(
   df_performance, 
-  caption = "Calibration and Discrimination Metrics for Moderator Effects Modeling"
+  caption = "Calibration and Discrimination Metrics for Moderator Effect Modeling"
 )
 ```
 
