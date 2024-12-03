@@ -1,0 +1,278 @@
+---
+title: "TBD"
+subtitle: "PHP2550 Project 3: A simulation study"
+author: "Yanwei (Iris) Tong"
+date: "2024-11-12"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+    #number_sections: true
+link-citations: yes
+header-includes:
+  - "\\usepackage{xcolor}"
+  - "\\usepackage{amsmath}"
+abstract: |
+  **Purpose:** 
+  
+  **Methods**:     
+  
+  **Results and conclusion**: 
+  
+
+geometry: margin=1in
+fontsize: 10.5pt
+---
+
+```{r setup, include=FALSE}
+# to prevent scientific notation
+options(scipen=999)
+
+# Set up knit environment
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      error = FALSE)
+
+# Load necessary packages
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(naniar)
+library(gtsummary)
+library(gt)
+library(patchwork)
+library(knitcitations)
+library(glmnet)
+library(pROC)
+library(MASS)
+library(leaps)
+library(RColorBrewer) 
+library(cowplot)
+library(lme4)
+
+# Define data saving paths
+data_path = paste0(here::here(), "/simulated_data")
+result_path = paste0(here::here(), "/results")
+```
+
+# \textcolor{orange}{INTRODUCTION}
+
+# \textcolor{orange}{SIMULATION DESIGN}
+
+## Aims and Objectives
+
+**Aim 1**: To evaluate the impact of different design choices (number of clusters $G$ and observations per cluster $R$) under budget constraints $B$.
+
+**Aim 2**: To explore the relationships between the underlying data generation mechanism parameters (e.g., variance components) and cost structure (relative costs $c_1/c_2$) and their impacts on estimation efficiency of treatment effects.
+
+**Aim 3**: To compare performance under different outcome distributions (Normal vs. Poisson).
+
+## Data Generating Mechanisms
+
+#### Cost constraint
+
+$$
+c_1 + G(R-1)c_2 \leq B
+$$
+
+#### Hierarchical Model for Normal Outcomes
+
+1.  **Cluster-level mean:**
+
+$$
+\mu_{i0} = \alpha + \beta X_i \quad (\text{fixed effect for treatment/control groups}) \\
+\mu_i \mid \epsilon_i = \mu_{i0} + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2) \\
+\mu_i \sim N(\mu_{i0}, \gamma^2)
+$$
+
+2.  **Observation-level outcomes:**
+
+$$
+Y_{ij} \mid \mu_i = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2)\\
+Y_{ij} \mid \mu_i \sim N(\mu_i, \sigma^2)$$
+
+3.  **Marginal outcome distribution:**
+$$\text{Marginal mean:} \quad \mathbb{E}[Y\_{ij} \mid X_i] = \alpha + \beta X_i \\
+\text{Marginal variance:} \quad \text{Var}(Y\_{ij} \mid X_i) = \gamma^2 + \sigma^2 $$
+
+#### Hierarchical Model for Poisson Outcomes
+
+1.  **Cluster-level mean:**
+$$
+\log(\mu_i) = \alpha + \beta X_i + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2)\\
+\mu_i \sim \text{LogNormal}(\alpha + \beta X_i, \gamma^2)
+$$
+
+2.  **Observation-level outcomes:** 
+$$
+    Y_{ij} \mid \mu_i \sim \text{Poisson}(\mu_i)
+$$
+
+3.  **Summing within a cluster:** 
+$$
+Y_i = \sum_{j=1}^R Y_{ij} \quad (\text{sum of all observations in the cluster}) 
+$$ 
+$$
+Y_i \mid \mu_i \sim \text{Poisson}(R \mu_i)
+$$
+
+
+
+```{r}
+#' @param alpha Intercept parameter (baseline mean).
+#' @param beta Treatment effect.
+#' @param gamma_sq Variance of cluster-level random effects.
+#' @param sigma_sq Variance of observation-level random noise.
+#' @param B Total budget available for the study (in dollars).
+#' @param c1 Cost of the first sample in each cluster.
+#' @param c2 Cost of additional samples in the same cluster (c2 < c1).
+#' @param G Number of clusters
+#' @param R Number of observations per cluster
+#' @return Data frame containing simulated data (Y, X).
+#' @export
+simulate_clustered_data <- function(model = "normal",
+                                    alpha,
+                                    beta,
+                                    gamma_sq,
+                                    sigma_sq,
+                                    B,
+                                    c1,
+                                    c2,
+                                    G,
+                                    R) {
+  
+  set.seed(46)
+  X <- rbinom(G, size = 1, prob = 0.5)
+  epsilon <- rnorm(G, mean = 0, sd = sqrt(gamma_sq))
+  
+  Y_list <- list()
+  cluster_id <- c()
+  observation_id <- c()
+  
+  for (i in 1:G) {
+    mu_i <- alpha + beta * X[i] + epsilon[i]
+    e_ij <- rnorm(R, mean = 0, sd = sqrt(sigma_sq))
+    Y_ij <- mu_i + e_ij
+    
+    Y_list[[i]] <- Y_ij
+    cluster_id <- c(cluster_id, rep(i, R))
+    observation_id <- c(observation_id, 1:R)
+  }
+  
+  Y <- unlist(Y_list)
+  X_obs <- rep(X, each = R)
+  data <- data.frame(Y, X_obs, cluster_id, observation_id)
+  saveRDS(data, paste0("simulated_data_G", G, "_R", R, ".rds"))
+  return(data)
+}
+
+
+#' Find optimal G and R to minimize variance
+#'
+#' @param alpha Intercept parameter (baseline mean).
+#' @param beta Treatment effect.
+#' @param gamma_sq Variance of cluster-level random effects.
+#' @param sigma_sq Variance of observation-level random noise.
+#' @param B Total budget available for the study (in dollars).
+#' @param c1 Cost of the first sample in each cluster.
+#' @param c2 Cost of additional samples in the same cluster (c2 < c1).
+#' @print List with optimal G, optimal R, and minimum variance.
+#' @return 
+find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2) {
+  min_variance <- Inf
+  best_G <- 0
+  best_R <- 0
+  
+  results <- data.frame(alpha = numeric(), beta = numeric(), 
+                        gamma_sq = numeric(), sigma_sq = numeric(), 
+                        B = numeric(), c1 = numeric(), c2 = numeric(),
+                        G = integer(), R = integer(), 
+                        betahat = numeric(), variance = numeric())
+  
+  for (G in 2:(B/c1)) {
+    for (R in 5:20) {
+      N <- G * R
+      if (c1 * G + c2 * (N - G) <= B) {
+        data <- simulate_clustered_data(model = "normal", alpha, 
+                                        beta, gamma_sq, sigma_sq, 
+                                        B, c1, c2, G, R)
+        View(data)
+        model <- lmer(Y ~ X_obs + (1 | cluster_id), data = data)
+        print(summary(model))
+        betahat <- fixef(model)["X_obs"])
+        variance <- VarCorr(model)$cluster_id[1]
+        
+        if (is.na(betahat) || is.na(variance)) {
+          cat("NA detected in betahat or variance for G =", G, "and R =", R, "\n")
+          next
+        }
+        
+        if (variance < min_variance) {
+          min_variance <- variance
+          best_G <- G
+          best_R <- R
+        }
+        
+        results <- rbind(results, data.frame(alpha = alpha, beta = beta, 
+                                             gamma_sq = gamma_sq,sigma_sq = sigma_sq, 
+                                             B = B, c1 = c1, c2 = c2,
+                                             G = G, R = R, 
+                                             betahat = betahat, variance = variance))
+      }
+    }
+  }
+  
+  write.csv(results, 
+            paste0("simulation_results_all_B_", B, "_c1_", c1, "_c2_", c2, ".csv"), 
+            row.names = FALSE)
+  return(results)
+  cat("Minimum variance:", min_variance, "\n")
+  cat("Optimal number of clusters (G):", best_G, "\n") 
+  cat("Optimal number of observations per cluster (R):", best_R, "\n")
+}
+
+```
+
+
+```{r}
+# Example usage
+alpha <- 10
+beta <- 2
+gamma_sq <- 4
+sigma_sq <- 1
+B <- 3000
+c1 <- 100
+c2 <- 5
+result <- find_optimal_G_R(alpha, beta, gamma_sq, sigma_sq, B, c1, c2)
+View(result)
+```
+
+
+## Estimands
+
+## Methods to Evaluate
+
+## Performance Measures
+
+# \textcolor{orange}{RESULTS}
+
+# \textcolor{orange}{CONCLUSION}
+
+# \textcolor{orange}{LIMITATIONS}
+
+# Data, and Code Availability
+
+This project is a collaboration with Dr. Zhijin Wu in the Biostatistics Department. Replication scripts and simulated data are available at <https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project2>.
+
+# Reference
+
+\pagebreak
+
+# Code Appendix
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```

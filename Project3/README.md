@@ -1,4 +1,4 @@
-# PHP2550 Project 3: A simulation analysis
+# PHP2550 Project 3: A simulation study
 
 ## 
 
