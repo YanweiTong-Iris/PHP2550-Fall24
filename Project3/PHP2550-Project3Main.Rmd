@@ -55,8 +55,8 @@ library(cowplot)
 library(lme4)
 
 # Define data saving paths
-data_path = paste0(here::here(), "/simulated_data")
-result_path = paste0(here::here(), "/results")
+data_path = paste0(here::here(), "/Project3/simulated_data")
+result_path = paste0(here::here(), "/Project3/results")
 ```
 
 # \textcolor{orange}{INTRODUCTION}
@@ -132,6 +132,7 @@ $$
 #' @param c2 Cost of additional samples in the same cluster (c2 < c1).
 #' @param G Number of clusters
 #' @param R Number of observations per cluster
+#' @param n_sim Number of simulation iterations for tracking purposes
 #' @return Data frame containing simulated data (Y, X).
 #' @export
 simulate_clustered_data <- function(model = "normal",
@@ -143,15 +144,16 @@ simulate_clustered_data <- function(model = "normal",
                                     c1,
                                     c2,
                                     G,
-                                    R) {
+                                    R,
+                                    n_sim = 1) {
   
-  set.seed(46)
   X <- rbinom(G, size = 1, prob = 0.5)
   epsilon <- rnorm(G, mean = 0, sd = sqrt(gamma_sq))
   
   Y_list <- list()
   cluster_id <- c()
   observation_id <- c()
+  n_sim_id <- c()
   
   for (i in 1:G) {
     mu_i <- alpha + beta * X[i] + epsilon[i]
@@ -161,12 +163,12 @@ simulate_clustered_data <- function(model = "normal",
     Y_list[[i]] <- Y_ij
     cluster_id <- c(cluster_id, rep(i, R))
     observation_id <- c(observation_id, 1:R)
+    n_sim_id <- c(n_sim_id, rep(n_sim, R))
   }
   
   Y <- unlist(Y_list)
   X_obs <- rep(X, each = R)
-  data <- data.frame(Y, X_obs, cluster_id, observation_id)
-  saveRDS(data, paste0("simulated_data_G", G, "_R", R, ".rds"))
+  data <- data.frame(Y, X_obs, cluster_id, observation_id, n_sim = n_sim_id)
   return(data)
 }
 
@@ -180,9 +182,10 @@ simulate_clustered_data <- function(model = "normal",
 #' @param B Total budget available for the study (in dollars).
 #' @param c1 Cost of the first sample in each cluster.
 #' @param c2 Cost of additional samples in the same cluster (c2 < c1).
+#' @param n_simulations Number of simulations to run for each G and R combination.
 #' @print List with optimal G, optimal R, and minimum variance.
 #' @return 
-find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2) {
+find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simulations = 100) {
   min_variance <- Inf
   best_G <- 0
   best_R <- 0
@@ -193,45 +196,73 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2) {
                         G = integer(), R = integer(), 
                         betahat = numeric(), variance = numeric())
   
-  for (G in 2:(B/c1)) {
-    for (R in 5:20) {
-      N <- G * R
-      if (c1 * G + c2 * (N - G) <= B) {
-        data <- simulate_clustered_data(model = "normal", alpha, 
-                                        beta, gamma_sq, sigma_sq, 
-                                        B, c1, c2, G, R)
-        View(data)
+  for (G in 2:(floor((B / c1)) - 1)) {
+    R = floor((B - G * c1) / (c2 * G)) + 1
+    if (R > 1) {
+      betahats <- numeric(n_simulations)
+      
+      data_list <- list()
+      
+      for (sim in 1:n_simulations) {
+        data <- simulate_clustered_data(model = "normal", 
+                                        alpha, beta, 
+                                        gamma_sq, sigma_sq, 
+                                        B, c1, c2, 
+                                        G, R, n_sim = sim)
+        
         model <- lmer(Y ~ X_obs + (1 | cluster_id), data = data)
-        print(summary(model))
-        betahat <- fixef(model)["X_obs"])
-        variance <- VarCorr(model)$cluster_id[1]
-        
-        if (is.na(betahat) || is.na(variance)) {
-          cat("NA detected in betahat or variance for G =", G, "and R =", R, "\n")
-          next
-        }
-        
-        if (variance < min_variance) {
-          min_variance <- variance
-          best_G <- G
-          best_R <- R
-        }
-        
-        results <- rbind(results, data.frame(alpha = alpha, beta = beta, 
-                                             gamma_sq = gamma_sq,sigma_sq = sigma_sq, 
-                                             B = B, c1 = c1, c2 = c2,
-                                             G = G, R = R, 
-                                             betahat = betahat, variance = variance))
+        betahats[sim] <- fixef(model)["X_obs"]
+        data_list[[sim]] <- data
       }
-    }
-  }
+      
+      # Combine all simulated datasets for this G and R combination
+      combined_data <- do.call(rbind, data_list)
+      saveRDS(combined_data, paste0(data_path, "/beta_", beta, 
+                                    "_B_", B, "_c1_", c1, "_c2_", c2,
+                                    "/simulated_data_G_", G, "_R_", R, ".rds"))
+      
+      # Remove NA values from betahats
+      betahats <- betahats[!is.na(betahats)]
+      
+      betahat_mean <- mean(betahats)
+      betahat_variance <- var(betahats)
+      
+
+    if (betahat_variance < min_variance) {
+        min_variance <- betahat_variance
+        best_G <- G
+        best_R <- R
+      }
+    
+    results <- rbind(
+      results,
+      data.frame(
+        alpha = alpha,
+        beta = beta,
+        gamma_sq = gamma_sq,
+        sigma_sq = sigma_sq,
+        B = B,
+        c1 = c1,
+        c2 = c2,
+        G = G,
+        R = R,
+        betahat_mean = betahat_mean,
+        betahat_var = betahat_variance
+      )
+    )
+  }}
   
-  write.csv(results, 
-            paste0("simulation_results_all_B_", B, "_c1_", c1, "_c2_", c2, ".csv"), 
-            row.names = FALSE)
+  write.csv(
+    results,
+    paste0(
+      result_path,
+      "/simulation_results_all_beta", beta, "_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
+    ),
+    row.names = FALSE
+  )
   return(results)
-  cat("Minimum variance:", min_variance, "\n")
-  cat("Optimal number of clusters (G):", best_G, "\n") 
+  cat("Minimum betahat variance:", min_variance, "\n")
+  cat("Optimal number of clusters (G):", best_G, "\n")
   cat("Optimal number of observations per cluster (R):", best_R, "\n")
 }
 
@@ -249,6 +280,14 @@ c1 <- 100
 c2 <- 5
 result <- find_optimal_G_R(alpha, beta, gamma_sq, sigma_sq, B, c1, c2)
 View(result)
+
+ggplot(result, aes(x = G, y = betahat_var)) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue") +
+  labs(title = paste("Relationship between G and Var(Betahat) (B =", B, ", c1 =", c1, ", c2 =", c2, ", beta =", beta, ")"),
+       x = "G",
+       y = "betahat_var") +
+  theme_minimal()
 ```
 
 
