@@ -138,7 +138,7 @@ $$
 #' @param n_sim Number of simulation iterations for tracking purposes
 #' @return Data frame containing simulated data (Y, X) and the input parameters.
 #' @export
-simulate_clustered_data <- function(model = "normal",
+simulate_clustered_data <- function(dist = "Normal",
                                     alpha,
                                     beta,
                                     gamma_sq,
@@ -189,7 +189,7 @@ simulate_clustered_data <- function(model = "normal",
 #' @print List with optimal G, optimal R, and minimum variance.
 #' @return The result dataset with mean and var of Beta_hat for all G and R combination
 #' @export
-find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simulations = 100) {
+find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simulations = 100) {
   min_variance <- Inf
   best_G <- 0
   best_R <- 0
@@ -209,7 +209,7 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
       
       set.seed(46)
       for (sim in 1:n_simulations) {
-        data <- simulate_clustered_data(model = "normal", 
+        data <- simulate_clustered_data(dist = "Normal", 
                                         alpha, beta, 
                                         gamma_sq, sigma_sq, 
                                         B, c1, c2, 
@@ -222,7 +222,9 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
       
       # Combine all simulated datasets for this G and R combination
       combined_data <- do.call(rbind, data_list)
-      saveRDS(combined_data, paste0(data_path, "/beta_", beta, "_gammasq_", gamma_sq, 
+      
+      saveRDS(combined_data, paste0(data_path, 
+                                    "/", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
                                     "_sigmasq_", sigma_sq,
                                     "_B_", B, "_c1_", c1, "_c2_", c2,
                                     "/simulated_data_G_", G, "_R_", R, ".rds"))
@@ -261,80 +263,123 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
   write.csv(
     results,
     paste0(
-      result_path,
-      "/simulation_results_all_beta_", beta, "_gammasq_", gamma_sq, 
+      result_path, 
+      "/simulation_results_", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
       "_sigmasq_", sigma_sq,"_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
     ),
     row.names = FALSE
   )
   return(results)
-  cat("Minimum betahat variance:", min_variance, "\n")
-  cat("Optimal number of clusters (G):", best_G, "\n")
-  cat("Optimal number of observations per cluster (R):", best_R, "\n")
+  # cat("Minimum betahat variance:", min_variance, "\n")
+  # cat("Optimal number of clusters (G):", best_G, "\n")
+  # cat("Optimal number of observations per cluster (R):", best_R, "\n")
 }
 
 
 #' Make the point plot for Var(Betahat) vs. G
 #'
 #' @param result The result dataset
+#' @param group_name For faceted plotting purpose
 #' @print The point plot with Var(Betahat) vs G.
-var_vs_G_plot <- function(result){
-  beta = unique(result[["beta"]])
-  B = unique(result[["B"]])
-  c1 = unique(result[["c1"]])
-  c2 = unique(result[["c2"]])
-  # Find the point with the lowest betahat_var
-lowest_point <- result[which.min(result$betahat_var), ]
-
-ggplot(result, aes(x = G, y = betahat_var)) +
-  geom_line(color = "blue") +
-  geom_point(color = "blue") +
-  geom_point(data = lowest_point, aes(x = G, y = betahat_var), color = "red", size = 3) +
-  geom_text(data = lowest_point, aes(x = G, y = betahat_var, label = round(betahat_var, 2)), 
-            vjust = -1, color = "red") +
-  labs(title = "Relationship between G and Var(Betahat)",
-       subtitle = paste("(B =", B, ", c1 =", c1, ", c2 =", c2, 
-                         ", True Beta =", beta, ")"),
-       x = "G",
-       y = "Var(Betahat)") +
-  theme_minimal()
+var_vs_G_plot_by_facet <- function(results, group_name) {
+  
+  # Filter results for the specified group
+  group_results <- results %>% filter(group == group_name)
+  
+  # Find the point with the lowest betahat_var for each unique combination of c1 and c2
+  lowest_points <- group_results %>%
+    group_by(c1, c2) %>%
+    filter(betahat_var == min(betahat_var)) %>%
+    ungroup()
+  
+  beta = unique(group_results[["beta"]])
+  B = unique(group_results[["B"]])
+  c1 = unique(group_results[["c1"]])
+  c2 = unique(group_results[["c2"]])
+  gamma_sq = unique(group_results[["gamma_sq"]])
+  sigma_sq = unique(group_results[["sigma_sq"]])
+  
+  # Create the faceted plot
+  plot = ggplot(group_results, aes(x = G, y = betahat_var)) +
+    geom_line(color = "darkblue") +
+    geom_point(color = "darkblue") +
+    geom_point(data = lowest_points, aes(x = G, y = betahat_var), color = "red", size = 2) +
+    geom_text(data = lowest_points, aes(x = G, y = betahat_var, 
+                                        label = paste("Min. var =", round(betahat_var, 2), 
+                                                      "\n at G =", G, ", R =", R)), 
+              vjust = -1.1, hjust = 0.75 ,color = "red", size = 3) +
+    labs(
+      title = paste("Relationship between Variance of the Beta Estimate and the Number of Clusters"),
+      subtitle = bquote(list(B ==.(B), gamma^2 == .(gamma_sq), sigma_^2 == .(sigma_sq), beta ==.(beta))),
+      x = " G: Number of Clusters",
+      y = "Var(Betahat)"
+    ) +
+    facet_wrap(~ facet_label,
+               scales = "free_x") +
+    theme_minimal()
+  
+  print(plot)
 }
 ```
 
 
-```{r, fig.width = 6, fig.height = 4, message = F, warning = F}
-alpha_list <- c(10, 10, 10, 5, 5, 5, 0, 0, 0)
-beta_list <- c(2, 2, 2, 1, 1, 1, 3, 3, 3)
-gamma_sq_list <- c(4, 4, 4, 4, 4, 4, 1, 1, 1)
-sigma_sq_list <- c(1, 1, 1, 4, 4, 4, 4, 4, 4)
-B_list <- c(3000, 3000, 3000, 2000, 2000, 2000, 5000, 5000, 5000)
-c1_list <- c(100, 50, 50, 100, 50, 50, 100, 50, 50)
-c2_list <- c(5, 5, 10, 5, 5, 10, 5, 5, 10)
+```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
+alpha_list <- rep(4, 12)
+beta_list <- c(2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2)
+gamma_sq_list <- c(1, 1, 1, 0.58, 0.58, 0.58, 1, 1, 1, 0.58, 0.58, 0.58)
+sigma_sq_list <- c(1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4)
+B_list <- c(3000, 3000, 3000, 2000, 2000, 2000, 5000, 5000, 5000, 4000, 4000, 4000)
+c1_list <- c(100, 50, 50, 100, 50, 50, 100, 50, 50, 100, 50, 50)
+c2_list <- c(5, 5, 10, 5, 5, 10, 5, 5, 10, 5, 5, 10)
 
-cl <- makeCluster(4)
-registerDoParallel(cl)
+# num_cores <- parallel::detectCores() - 2
+# registerDoParallel(num_cores)
 
-#for (i in 1:9){
-foreach (i = 1:9) %dopar%{
-  alpha = alpha_list[[i]]
+results_list <- list()
+
+for (i in 1:12){
+#foreach (i = 1:9, .packages = c("lme4")) %dopar%{
+  alpha = alpha_list[i]
   beta = beta_list[[i]]
   gamma_sq = gamma_sq_list[i]
   sigma_sq = sigma_sq_list[i]
   B = B_list[i]
   c1 = c1_list[i]
   c2 = c2_list[i]
-  result <- find_optimal_G_R(alpha = alpha, beta = beta, 
+  result <- find_optimal_G_R(dist = "Normal", alpha = alpha, beta = beta, 
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
-                             n_simulations = 100)
-  View(result)
-  var_vs_G_plot(result)
+                             # !!!!!!!!
+                             n_simulations = 10)
+  
+  # Add the group to the result for plotting
+  result$group <- paste0("Group ", ceiling(i / 3))
+  
+  # Combine c1 and c2 to create a single label for facetting
+  result$facet_label <- paste0("c1 = ", c1, " and c2 = ", c2)
+  
+  # Store the result in the list
+  results_list[[i]] <- result
 }
 
-stopCluster(cl)
+combined_results <- do.call(rbind, results_list)
+var_vs_G_plot_by_facet(combined_results, group_name = "Group 1")
+
+#stopCluster(num_cores)
+```
+
+```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
+var_vs_G_plot_by_facet(combined_results, group_name = "Group 2")
 ```
 
 
+```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
+var_vs_G_plot_by_facet(combined_results, group_name = "Group 3")
+```
+
+```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
+var_vs_G_plot_by_facet(combined_results, group_name = "Group 4")
+```
 
 
 ## Estimands
