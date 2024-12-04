@@ -133,7 +133,7 @@ $$
 #' @param G Number of clusters
 #' @param R Number of observations per cluster
 #' @param n_sim Number of simulation iterations for tracking purposes
-#' @return Data frame containing simulated data (Y, X).
+#' @return Data frame containing simulated data (Y, X) and the input parameters.
 #' @export
 simulate_clustered_data <- function(model = "normal",
                                     alpha,
@@ -184,7 +184,8 @@ simulate_clustered_data <- function(model = "normal",
 #' @param c2 Cost of additional samples in the same cluster (c2 < c1).
 #' @param n_simulations Number of simulations to run for each G and R combination.
 #' @print List with optimal G, optimal R, and minimum variance.
-#' @return 
+#' @return The result dataset with mean and var of Beta_hat for all G and R combination
+#' @export
 find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simulations = 100) {
   min_variance <- Inf
   best_G <- 0
@@ -203,6 +204,7 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
       
       data_list <- list()
       
+      set.seed(46)
       for (sim in 1:n_simulations) {
         data <- simulate_clustered_data(model = "normal", 
                                         alpha, beta, 
@@ -217,7 +219,8 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
       
       # Combine all simulated datasets for this G and R combination
       combined_data <- do.call(rbind, data_list)
-      saveRDS(combined_data, paste0(data_path, "/beta_", beta, 
+      saveRDS(combined_data, paste0(data_path, "/beta_", beta, "_gammasq_", gamma_sq, 
+                                    "_sigmasq_", sigma_sq,
                                     "_B_", B, "_c1_", c1, "_c2_", c2,
                                     "/simulated_data_G_", G, "_R_", R, ".rds"))
       
@@ -256,7 +259,8 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
     results,
     paste0(
       result_path,
-      "/simulation_results_all_beta", beta, "_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
+      "/simulation_results_all_beta_", beta, "_gammasq_", gamma_sq, 
+      "_sigmasq_", sigma_sq,"_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
     ),
     row.names = FALSE
   )
@@ -266,29 +270,63 @@ find_optimal_G_R <- function(alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simul
   cat("Optimal number of observations per cluster (R):", best_R, "\n")
 }
 
-```
 
-
-```{r}
-# Example usage
-alpha <- 10
-beta <- 2
-gamma_sq <- 4
-sigma_sq <- 1
-B <- 3000
-c1 <- 100
-c2 <- 5
-result <- find_optimal_G_R(alpha, beta, gamma_sq, sigma_sq, B, c1, c2)
-View(result)
+#' Make the point plot for Var(Betahat) vs. G
+#'
+#' @param result The result dataset
+#' @print The point plot with Var(Betahat) vs G.
+var_vs_G_plot <- function(result){
+  beta = unique(result[["beta"]])
+  B = unique(result[["B"]])
+  c1 = unique(result[["c1"]])
+  c2 = unique(result[["c2"]])
+  # Find the point with the lowest betahat_var
+lowest_point <- result[which.min(result$betahat_var), ]
 
 ggplot(result, aes(x = G, y = betahat_var)) +
   geom_line(color = "blue") +
   geom_point(color = "blue") +
-  labs(title = paste("Relationship between G and Var(Betahat) (B =", B, ", c1 =", c1, ", c2 =", c2, ", beta =", beta, ")"),
+  geom_point(data = lowest_point, aes(x = G, y = betahat_var), color = "red", size = 3) +
+  geom_text(data = lowest_point, aes(x = G, y = betahat_var, label = round(betahat_var, 2)), 
+            vjust = -1, color = "red") +
+  labs(title = "Relationship between G and Var(Betahat)",
+       subtitle = paste("(B =", B, ", c1 =", c1, ", c2 =", c2, 
+                         ", True Beta =", beta, ")"),
        x = "G",
-       y = "betahat_var") +
+       y = "Var(Betahat)") +
   theme_minimal()
+}
 ```
+
+
+```{r, fig.width = 6, fig.height = 4}
+alpha_list <- c(10, 10, 10, 5, 5, 5, 0, 0, 0)
+beta_list <- c(2, 2, 2, 1, 1, 1, 3, 3, 3)
+gamma_sq_list <- c(4, 4, 4, 4, 4, 4, 1, 1, 1)
+sigma_sq_list <- c(1, 1, 1, 4, 4, 4, 4, 4, 4)
+B_list <- c(3000, 3000, 3000, 2000, 2000, 2000, 5000, 5000, 5000)
+c1_list <- c(100, 50, 50, 100, 50, 50, 100, 50, 50)
+c2_list <- c(5, 5, 10, 5, 5, 10, 5, 5, 10)
+
+for (i in 1:9){
+  alpha = alpha_list[[i]]
+  beta = beta_list[[i]]
+  gamma_sq = gamma_sq_list[i]
+  sigma_sq = sigma_sq_list[i]
+  B = B_list[i]
+  c1 = c1_list[i]
+  c2 = c2_list[i]
+  result <- find_optimal_G_R(alpha = alpha, beta = beta, 
+                             gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
+                             B = B, c1 = c1, c2 = c2,
+                             n_simulations = 100)
+  View(result)
+  var_vs_G_plot(result)
+}
+
+```
+
+
 
 
 ## Estimands
