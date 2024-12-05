@@ -67,73 +67,76 @@ result_path = paste0(here::here(), "/Project3/results")
 
 - *Aim 1*: To evaluate the impact of different design choices (number of clusters $G$ and observations per cluster $R$) under the budget constraint $B$ and the fixed cluster cost for the first sample $c_1$ and the cost for all additional samples in the same cluster $c_2$ where $c_2 < c_1$.
 
-- *Aim 2*: To explore the relationships between the underlying data generation mechanism parameters (e.g., variance components) and cost structure (relative costs $c_1/c_2$) and their impacts on estimation efficiency of treatment effects.
+- *Aim 2*: To explore the relationships between the underlying data generation mechanism parameters (e.g., variance components $\gamma^2$ and $\sigma^2$) and cost structure (relative costs $c_1/c_2$) and their impacts on estimation efficiency of treatment effects.
 
-- *Aim 3*: To compare performance under different outcome distributions (Normal vs. Poisson).
+- *Aim 3*: To compare simulation performances and patterns under different outcome distributions (Normal vs. Poisson).
 
 ## Data Generating Mechanisms
 
-**Budget constraint**: The budget constraint is defined as:
-
-$$
-c_1 + G(R-1)c_2 \leq B
-$$
-This reflects that each cluster incurs a higher cost for the initial observation ($c_1$), while subsequent observations within the same cluster are less costly ($c_2$).
+**Budget constraint**: The budget constraint is defined as **$Gc_1 + G(R-1)c_2 \leq B$**. This reflects that each cluster incurs a higher cost for the initial observation ($c_1$), while subsequent observations within the same cluster are less costly ($c_2$).
 
 
 #### Hierarchical Model for Normal Outcomes
 
 For the Normal outcome model, the cluster-level outcomes are generated based on a linear model that incorporates both fixed treatment effects and random cluster effects, where the random effects introduce variability specific to each cluster. Subsequently, each observation within a cluster is generated with additional residual noise, capturing within-cluster variability. This hierarchical approach allows us to separately model both the variability between clusters and the variability within each cluster.
 
-1)  **Cluster-level mean:**
+1)  **Cluster-level mean:** The cluster-level mean ($\mu_i$) depends on a fixed effect for treatment or control groups, as well as a random effect capturing the variability among clusters:
 $$
-\mu_{i0} = \alpha + \beta X_i \quad (\text{fixed effect for treatment/control groups}) \\  
+\mu_{i0} = \alpha + \beta X_i, \quad  
 \mu_i \mid \epsilon_i = \mu_{i0} + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2) \rightarrow
 \mu_i \sim N(\mu_{i0}, \gamma^2)
 $$
+Here, $X_i$ represents the treatment indicator ($0 = \text{control}, 1 = \text{treatment}$), and $\epsilon_i$ is the random effect associated with cluster $i$, representing unobserved cluster-level factors that affect the outcome. $\gamma^2$ represents the variance of these cluster-level random effects.
 
-2)  **Observation-level outcomes:**
+
+2)  **Observation-level outcomes:** Each observation ($Y_{ij}$) within cluster $i$ is generated around the cluster mean ($\mu_i$) with an additional random noise component:
 $$
 Y_{ij} \mid \mu_i = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2) \rightarrow Y_{ij} \mid \mu_i \sim N(\mu_i, \sigma^2)
 $$
+The residual $e_{ij}$ represents within-cluster variability, assumed to be normally distributed with variance $\sigma^2$.
 
-3)  **Marginal outcome distribution:**
+
+3)  **Marginal outcome distribution:** The marginal distribution of $Y_{ij}$ given the treatment indicator $X_i$ can be derived by integrating over the random effects. The marginal mean and variance are given by:
 $$
 \text{Marginal mean:} \quad \mathbb{E}[Y\_{ij} \mid X_i] = \alpha + \beta X_i , \quad
 \text{Marginal variance:} \quad \text{Var}(Y\_{ij} \mid X_i) = \gamma^2 + \sigma^2 
 $$
+These expressions illustrate the overall variability in the data, which is composed of both between-cluster variance ($\gamma^2$) and within-cluster variance ($\sigma^2$).
 
 #### Hierarchical Model for Poisson Outcomes
 
 For the Poisson outcome model, the cluster-level outcome is modeled on the logarithmic scale to ensure positivity, which is characteristic of count data. Each observation within a cluster is modeled as a Poisson random variable with a rate parameter determined by the cluster-level mean. The hierarchical structure is preserved by first modeling the cluster mean and then generating individual outcomes from that cluster-specific rate. This approach is useful in scenarios where outcomes are counts and are assumed to follow a Poisson distribution.
 
-1)  **Cluster-level mean:**
+1)  **Cluster-level mean:** The cluster-level rate parameter ($\mu_i$) is modeled on the logarithmic scale to ensure non-negativity:
+
 $$
 \log(\mu_i) = \alpha + \beta X_i + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2)\\
 \mu_i \sim \text{LogNormal}(\alpha + \beta X_i, \gamma^2)
 $$
+The exponentiated $\mu_i$ follows a log-normal distribution, which ensures that the rate parameter is always positive, as required for Poisson-distributed outcomes.
 
-2)  **Observation-level outcomes:** 
+2)  **Observation-level outcomes:** Each observation ($Y_{ij}$) within cluster $i$ follows a Poisson distribution with the rate parameter $\mu_i$:
 $$
     Y_{ij} \mid \mu_i \sim \text{Poisson}(\mu_i)
 $$
+This captures the individual-level variability, where the rate of occurrence is determined by the cluster-level mean.
 
-3)  **Summing within a cluster:** 
+3)  **Summing within a cluster:** The aggregated outcome for cluster $i$ is given by summing over all individual outcomes within the cluster:
 $$
 Y_i = \sum_{j=1}^R Y_{ij} \quad and \quad Y_i \mid \mu_i \sim \text{Poisson}(R \mu_i)
 $$ 
-
+Since the sum of independent Poisson random variables remains Poisson, the total count within a cluster also follows a Poisson distribution, with rate parameter equal to $R$ times the cluster-level mean.
 
 ## Estimand
 
-**Average Treatment Effect ($\beta$)** : The primary estimand of interest is to estimate the average treatment effect $\hat{\beta}$. This parameter captures the difference in outcomes between treatment and control groups. For the Normal outcome model, $\beta$ represents the mean difference in outcomes, while in the Poisson outcome model, it represents the log-relative rate difference between treatment and control groups. And the ultimate objective related to the estimand is to optimize the study design to achieve precise estimates of $beta$. In other words, we would like to find the optimal combination of cluster size $G$ and number of observations per cluster $R$ that provides the most efficient allocation of resources while maintaining a budget constraint and thus minimizes the variance of $Var(\hat{\beta})$. More to be discussed in the "Performance Measures" subsection as follows.
+**Average Treatment Effect ($\beta$)** : The primary estimand of interest is to estimate the average treatment effect $\hat{\beta}$. This parameter captures the difference in outcomes between treatment and control groups. For the Normal outcome model, $\beta$ represents the mean difference in outcomes, while in the Poisson outcome model, it represents the log-relative rate difference between treatment and control groups. And the ultimate objective related to the estimand is to optimize the study design to achieve precise estimates of $beta$. This involves **exploring different trade-offs between increasing $G$ versus $R$**, given the differing costs. In other words, we would like to find the optimal combination of cluster size $G$ and number of observations per cluster $R$ that provides the most efficient allocation of resources while maintaining a budget constraint and thus minimizes the variance of $Var(\hat{\beta})$. More to be discussed in the "Performance Measures" subsection as follows.
 
 ## Methods to Evaluate
 
-The evaluation process involves conducting repeated simulations across a range of different design parameters, exploring how these parameters influence the variance of the estimated treatment effect ($\hat{\beta}$). Specifically, we aim to iterate through combinations of the number of clusters ($G$) and the number of observations per cluster ($R$) under a fixed budget constraint ($B$). This involves:
+The evaluation process involves conducting repeated simulations across a range of different design parameters, exploring how these parameters influence the variance of the estimated treatment effect ($\hat{\beta}$). Specifically, we aim to iterate through combinations of the number of clusters ($G$), and for each $G$, we calcualte the largest possible number of observations per cluster ($R$) under a fixed budget constraint ($B$). This involves:
 
   1) **Iterating through All Possible Values of $G$**:
-    - For each simulation scenario, we iterate $G$ from $G = 2$ to $\lfloor B / c_1 \rfloor$, where $c_1$ is the cost of sampling the first unit in each cluster. For each value of $G$, we compute the corresponding number of observations per cluster ($R$) such that the cost remains within budget:
+    - For each simulation scenario, we iterate $G$ from $G = 2$ to $\lfloor B / c_1 \rfloor$, where $c_1$ is the cost of sampling the first unit in each cluster. For each value of $G$, we compute the corresponding $R$ such that the cost remains within budget:
       \[
       R = \left\lfloor \frac{B - G \cdot c_1}{G \cdot c_2} + 1 \right\rfloor
       \]
@@ -147,19 +150,21 @@ The evaluation process involves conducting repeated simulations across a range o
 
 Also, as of *Aim2*, to understand the impact of various parameters on the optimal design:
 
-    1) **Vary $c_1$ and $c_2$**, especially considering different ratios of $c_1/c_2$, to determine how changes in cost structure influence the optimal allocation of resources.
+  1) **Vary $c_1$ and $c_2$**, especially considering different ratios of $c_1/c_2$, to determine how changes in cost structure influence the optimal allocation of resources.
     
-    2) **Vary $\sigma^2$ and $\gamma^2$**, representing within-cluster and between-cluster variance, respectively, to assess how different variance components affect the optimal design and the efficiency of the treatment effect estimation.
+  2) **Vary $\sigma^2$ and $\gamma^2$**, representing within-cluster and between-cluster variance, respectively, to assess how different variance components affect the optimal design and the efficiency of the treatment effect estimation.
     
-    3) **Evaluate Patterns and Relationships**:
-      - Analyze how changes in cost structure and variance components contribute to changes in the optimal design. This helps us derive practical recommendations for designing cluster-randomized trials under varying budgetary and variance conditions.
+  3) **Evaluate patterns and relationships**: Analyze how changes in cost structure and variance components contribute to changes in the optimal design. This helps us derive practical recommendations for designing cluster-randomized trials under varying budgetary and variance conditions.
 
+Note: FIXED BUDGET AND ONLY 2 BETAS
 
 ## Performance Measures
 
 1) **Variance of Treatment Effect Estimates ($Var(\hat{\beta})$)**: The most important performance metrics for this study is the variance of the estimated treatment effect. The variance quantifies the precision of the estimates. In this study, the design parameters-- such as the number of clusters ($G$) and the number of observations per cluster ($R$)-- are varied to determine how they affect the variance of $\hat{\beta}$ under a fixed $B$, $c_1$, and $c_2$. The aim is to determine which strategy provides the most efficient use of the budget in terms of reducing the variance of the estimated treatment effect.
 
-2) **Coverage Probability**: We evaluated the coverage probability of the estimated confidence intervals for the treatment effect. This metric assesses the proportion of confidence intervals that include the true value $\beta$. Mathematically, $\text{Coverage} = \Pr(\hat{\beta_{\alpha}}_{\text{ low}} \leq \beta_1 \leq \hat{\beta_{\alpha}}_{\text{ upp}}$, which is important for evaluating the reliability of the estimated treatment effect under different designs.
+2) **Coverage Probability**: We evaluated the coverage probability of the estimated confidence intervals for the treatment effect. This metric assesses the proportion of confidence intervals that include the true value $\beta$. Mathematically, $\text{Coverage} = \Pr(\hat{\beta_{\alpha}}_{\text{ low}} \leq \beta_1 \leq \hat{\beta_{\alpha}}_{\text{ upp})}$, which is important for evaluating the reliability of the estimated treatment effect under different designs.
+
+Note: !!!!Unbiased!!!
 
 # \textcolor{orange}{RESULTS}
 
@@ -365,7 +370,9 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
 #' @param result The result dataset
 #' @param group_name For faceted plotting purpose
 #' @print The point plot with Var(Betahat) vs G.
-var_vs_G_plot_by_facet <- function(results, group_name, dist) {
+var_vs_G_plot_by_facet <- function(results, group_name, dist, 
+                                   # for plotting purpose
+                                   title.indicator = T, x.title.indicator = T) {
   
   # Filter results for the specified group
   group_results <- results %>% filter(group == group_name)
@@ -393,33 +400,46 @@ var_vs_G_plot_by_facet <- function(results, group_name, dist) {
   plot = ggplot(group_results, aes(x = G, y = betahat_var)) +
     geom_line(color = "black") +
     geom_point(color = "black") +
-    geom_point(data = lowest_points, aes(x = G, y = betahat_var), color = "darkorange", size = 2) +
+    geom_point(data = lowest_points, aes(x = G, y = betahat_var), color = "darkorange", size = 2.5) +
     geom_text(data = lowest_points, aes(x = G, y = betahat_var, 
                                         label = paste("Min. var =", round(betahat_var, 2), 
                                                       "\n at G =", G, ", R =", R)), 
-              vjust = -1.2, hjust = 0.5 ,color = "darkorange", size = 3) +
+              vjust = -1.2, hjust = 0.65, color = "darkorange", size = 3.5) +
     labs(
-      title = paste("Relationship between Variance of the Beta Estimate and the Number of Clusters, ",
-                    "Y ~ ", dist),
+      title = paste("Relationship between Variance of the Beta Estimate and the Number of Clusters (B = 4000, ",
+                    "Y ~ ", dist, ")"),
       subtitle = subtitle_text,
-      x = " G: Number of Clusters",
+      x = "G: Number of Clusters",
       y = "Var(Beta Estimate)"
     ) +
-    facet_wrap(~ facet_label,
-               scales = "free") +
-    theme_minimal()
+      theme_minimal() 
   
-  print(plot)
+  # Conditionally modify axis titles or plot title
+  if (!x.title.indicator) {
+    plot <- plot + theme(axis.title.x = element_blank())
+  }
+  
+  if (!title.indicator) {
+    plot <- plot + theme(plot.title = element_blank())
+  }
+  
+  # Check if facet_label column exists and has at least one unique value before applying facet_wrap
+  if ("facet_label" %in% colnames(group_results) && n_distinct(group_results$facet_label) > 0) {
+    plot <- plot + 
+      facet_wrap(~ facet_label, scales = "free")
+    print(plot)
+  }
+  
 }
 ```
 
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 alpha_list <- rep(4, 12)
-beta_list <- c(2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2)
+beta_list <- c(4, 4, 4, 1, 1, 1, 1, 1, 1, 4, 4, 4)
 gamma_sq_list <- c(1, 1, 1, 0.58, 0.58, 0.58, 1, 1, 1, 0.58, 0.58, 0.58)
 sigma_sq_list <- c(1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4)
-B_list <- c(3000, 3000, 3000, 2000, 2000, 2000, 5000, 5000, 5000, 4000, 4000, 4000)
+B_list <- rep(4000, 12)
 c1_list <- c(100, 100, 50, 100, 100, 50, 100, 100, 50, 100, 100, 50)
 c2_list <- c(5, 10, 10, 5, 10, 10, 5, 10, 10, 5, 10, 10)
 
@@ -441,7 +461,7 @@ for (i in 1:12){
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
                              # !!!!!!!!
-                             n_simulations = 5)
+                             n_simulations = 20)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -456,7 +476,9 @@ for (i in 1:12){
 Normal_combined_results <- do.call(rbind, Normal_results_list)
 var_vs_G_plot_by_facet(Normal_combined_results, 
                        group_name = "Group 1",
-                       dist = "Normal")
+                       dist = "Normal",
+                       title.indicator = T, 
+                       x.title.indicator = F)
 
 #stopCluster(num_cores)
 ```
@@ -464,27 +486,37 @@ var_vs_G_plot_by_facet(Normal_combined_results,
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Normal_combined_results, 
                        group_name = "Group 2",
-                       dist = "Normal")
+                       dist = "Normal",
+                       title.indicator = F, 
+                       x.title.indicator = f)
 ```
 
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Normal_combined_results, 
                        group_name = "Group 3",
-                       dist = "Normal")
+                       dist = "Normal",
+                       title.indicator = F, 
+                       x.title.indicator = F)
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Normal_combined_results, 
                        group_name = "Group 4",
-                       dist = "Normal")
+                       dist = "Normal",
+                       title.indicator = F, 
+                       x.title.indicator = T)
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+
 Poisson_results_list <- list()
 
-for (i in 1:12){
-#foreach (i = 1:9, .packages = c("lme4")) %dopar%{
+num_cores <- parallel::detectCores() - 2
+registerDoParallel(num_cores)
+
+#for (i in 1:9){
+foreach (i = 1:9, .packages = c("lme4")) %dopar%{
   alpha = alpha_list[i]
   beta = beta_list[[i]]
   gamma_sq = gamma_sq_list[i]
@@ -496,7 +528,7 @@ for (i in 1:12){
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
                              # !!!!!!!!
-                             n_simulations = 5)
+                             n_simulations = 10)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -511,27 +543,28 @@ for (i in 1:12){
 Poisson_combined_results <- do.call(rbind, Poisson_results_list)
 var_vs_G_plot_by_facet(Poisson_combined_results, 
                        group_name = "Group 1",
-                       dist = "Poisson")
-
+                       dist = "Poisson",
+                       title.indicator = T, 
+                       x.title.indicator = F)
+stopCluster(num_cores)
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Poisson_combined_results, 
                        group_name = "Group 2",
-                       dist = "Poisson")
+                       dist = "Poisson",
+                       title.indicator = F, 
+                       x.title.indicator = F)
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Poisson_combined_results, 
                        group_name = "Group 3",
-                       dist = "Poisson")
+                       dist = "Poisson",
+                       title.indicator = F, 
+                       x.title.indicator = T)
 ```
 
-```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
-var_vs_G_plot_by_facet(Poisson_combined_results, 
-                       group_name = "Group 4",
-                       dist = "Poisson")
-```
 
 
 
