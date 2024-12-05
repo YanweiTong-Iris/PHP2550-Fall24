@@ -46,11 +46,8 @@ library(gtsummary)
 library(gt)
 library(patchwork)
 library(knitcitations)
-library(glmnet)
-library(pROC)
 library(MASS)
-library(leaps)
-library(RColorBrewer) 
+library(RColorBrewer)
 library(cowplot)
 library(lme4)
 library(doParallel)
@@ -68,7 +65,7 @@ result_path = paste0(here::here(), "/Project3/results")
 
 ## Aims and Objectives
 
-**Aim 1**: To evaluate the impact of different design choices (number of clusters $G$ and observations per cluster $R$) under budget constraints $B$.
+**Aim 1**: To evaluate the impact of different design choices (number of clusters $G$ and observations per cluster $R$) under the budget constraint $B$ and the fixed cluster cost for the first sample $c_1$ and the cost for all additional samples in the same cluster $c_2$ where $c_2 < c_1$.
 
 **Aim 2**: To explore the relationships between the underlying data generation mechanism parameters (e.g., variance components) and cost structure (relative costs $c_1/c_2$) and their impacts on estimation efficiency of treatment effects.
 
@@ -87,19 +84,18 @@ $$
 1.  **Cluster-level mean:**
 
 $$
-\mu_{i0} = \alpha + \beta X_i \quad (\text{fixed effect for treatment/control groups}) \\
-\mu_i \mid \epsilon_i = \mu_{i0} + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2) \\
+\mu_{i0} = \alpha + \beta X_i \quad (\text{fixed effect for treatment/control groups})\\ 
+\mu_i \mid \epsilon_i = \mu_{i0} + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2) \rightarrow
 \mu_i \sim N(\mu_{i0}, \gamma^2)
 $$
 
 2.  **Observation-level outcomes:**
 
 $$
-Y_{ij} \mid \mu_i = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2)\\
-Y_{ij} \mid \mu_i \sim N(\mu_i, \sigma^2)$$
+Y_{ij} \mid \mu_i = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2) \rightarrow Y_{ij} \mid \mu_i \sim N(\mu_i, \sigma^2)$$
 
 3.  **Marginal outcome distribution:**
-$$\text{Marginal mean:} \quad \mathbb{E}[Y\_{ij} \mid X_i] = \alpha + \beta X_i \\
+$$\text{Marginal mean:} \quad \mathbb{E}[Y\_{ij} \mid X_i] = \alpha + \beta X_i , \quad
 \text{Marginal variance:} \quad \text{Var}(Y\_{ij} \mid X_i) = \gamma^2 + \sigma^2 $$
 
 #### Hierarchical Model for Poisson Outcomes
@@ -117,13 +113,15 @@ $$
 
 3.  **Summing within a cluster:** 
 $$
-Y_i = \sum_{j=1}^R Y_{ij} \quad (\text{sum of all observations in the cluster}) 
+Y_i = \sum_{j=1}^R Y_{ij} \quad and \quad Y_i \mid \mu_i \sim \text{Poisson}(R \mu_i)
 $$ 
-$$
-Y_i \mid \mu_i \sim \text{Poisson}(R \mu_i)
-$$
 
 
+## Estimands
+
+## Methods to Evaluate
+
+## Performance Measures
 
 ```{r}
 #' @param alpha Intercept parameter (baseline mean).
@@ -158,16 +156,33 @@ simulate_clustered_data <- function(dist = "Normal",
   observation_id <- c()
   n_sim_id <- c()
   
-  for (i in 1:G) {
-    mu_i <- alpha + beta * X[i] + epsilon[i]
-    e_ij <- rnorm(R, mean = 0, sd = sqrt(sigma_sq))
-    Y_ij <- mu_i + e_ij
-    
-    Y_list[[i]] <- Y_ij
-    cluster_id <- c(cluster_id, rep(i, R))
-    observation_id <- c(observation_id, 1:R)
-    n_sim_id <- c(n_sim_id, rep(n_sim, R))
-  }
+  if (dist == "Normal") {
+    for (i in 1:G) {
+      mu_i <- alpha + beta * X[i] + epsilon[i]
+      e_ij <- rnorm(R, mean = 0, sd = sqrt(sigma_sq))
+      Y_ij <- mu_i + e_ij
+      
+      Y_list[[i]] <- Y_ij
+      cluster_id <- c(cluster_id, rep(i, R))
+      observation_id <- c(observation_id, 1:R)
+      n_sim_id <- c(n_sim_id, rep(n_sim, R))
+    }
+  } else if (dist == "Poisson") {
+    # Generate Y for Poisson distribution
+    for (i in 1:G) {
+      # Calculate mu_i based on log-normal model
+      log_mu_i <- alpha + beta * X[i] + epsilon[i]
+      mu_i <- exp(log_mu_i)
+      
+      # Generate R Poisson observations for cluster i
+      Y_ij <- rpois(R, lambda = mu_i)
+      
+      Y_list[[i]] <- Y_ij
+      cluster_id <- c(cluster_id, rep(i, R))
+      observation_id <- c(observation_id, 1:R)
+      n_sim_id <- c(n_sim_id, rep(n_sim, R))
+    }
+  } 
   
   Y <- unlist(Y_list)
   X_obs <- rep(X, each = R)
@@ -209,13 +224,13 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
       
       set.seed(46)
       for (sim in 1:n_simulations) {
-        data <- simulate_clustered_data(dist = "Normal", 
+        data <- simulate_clustered_data(dist = dist, 
                                         alpha, beta, 
                                         gamma_sq, sigma_sq, 
                                         B, c1, c2, 
                                         G, R, n_sim = sim)
-        
-        model <- lmer(Y ~ X_obs + (1 | cluster_id), data = data)
+        family = ifelse(dist == "Normal", "gaussian", "poisson")
+        model <- glmer(Y ~ X_obs + (1 | cluster_id), family = family, data = data)
         betahats[sim] <- fixef(model)["X_obs"]
         data_list[[sim]] <- data
       }
@@ -223,25 +238,46 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
       # Combine all simulated datasets for this G and R combination
       combined_data <- do.call(rbind, data_list)
       
-      saveRDS(combined_data, paste0(data_path, 
+      if (dist == "Normal"){
+        subfolder = paste0(data_path, 
                                     "/", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
                                     "_sigmasq_", sigma_sq,
-                                    "_B_", B, "_c1_", c1, "_c2_", c2,
+                                    "_B_", B, "_c1_", c1, "_c2_", c2)
+        if (!dir.exists(subfolder)){dir.create(subfolder)}
+      saveRDS(combined_data, paste0(subfolder,
                                     "/simulated_data_G_", G, "_R_", R, ".rds"))
+      } else {
+        subfolder = paste0(data_path, 
+                                    "/", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
+                                    "_B_", B, "_c1_", c1, "_c2_", c2)
+        if (!dir.exists(subfolder)){dir.create(subfolder)}
+        saveRDS(combined_data, paste0(subfolder,
+                                    "/simulated_data_G_", G, "_R_", R, ".rds"))
+      }
       
       # Remove NA values from betahats
       betahats <- betahats[!is.na(betahats)]
       
-      betahat_mean <- mean(betahats)
-      betahat_variance <- var(betahats)
-      
-
-    if (betahat_variance < min_variance) {
-        min_variance <- betahat_variance
-        best_G <- G
-        best_R <- R
+      if (length(betahats) > 0) {
+        betahat_mean <- mean(betahats)
+        betahat_variance <- var(betahats)
+        
+        # Compare betahat_variance only if it is not NA
+        if (!is.na(betahat_variance) && betahat_variance < min_variance) {
+          min_variance <- betahat_variance
+          best_G <- G
+          best_R <- R
+        }
+      } else {
+        betahat_mean <- NA
+        betahat_variance <- NA
       }
     
+      
+    if (dist == "Poisson"){
+      sigma_sq = NA
+    }  
+      
     results <- rbind(
       results,
       data.frame(
@@ -260,19 +296,27 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
     )
   }}
   
-  write.csv(
-    results,
-    paste0(
+  if (dist == "Normal"){
+    result_save = paste0(
       result_path, 
       "/simulation_results_", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
       "_sigmasq_", sigma_sq,"_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
-    ),
+    )
+  } else {
+    result_save = paste0(
+      result_path, 
+      "/simulation_results_", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
+      "_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
+    )
+  }
+  
+  write.csv(
+    results,
+    result_save,
     row.names = FALSE
   )
   return(results)
-  # cat("Minimum betahat variance:", min_variance, "\n")
-  # cat("Optimal number of clusters (G):", best_G, "\n")
-  # cat("Optimal number of observations per cluster (R):", best_R, "\n")
+  
 }
 
 
@@ -281,7 +325,7 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
 #' @param result The result dataset
 #' @param group_name For faceted plotting purpose
 #' @print The point plot with Var(Betahat) vs G.
-var_vs_G_plot_by_facet <- function(results, group_name) {
+var_vs_G_plot_by_facet <- function(results, group_name, dist) {
   
   # Filter results for the specified group
   group_results <- results %>% filter(group == group_name)
@@ -299,23 +343,30 @@ var_vs_G_plot_by_facet <- function(results, group_name) {
   gamma_sq = unique(group_results[["gamma_sq"]])
   sigma_sq = unique(group_results[["sigma_sq"]])
   
+  if (dist == "Normal"){
+    subtitle_text = bquote(list(B ==.(B), gamma^2 == .(gamma_sq), sigma^2 == .(sigma_sq), beta ==.(beta)))
+  } else{
+    subtitle_text = bquote(list(B ==.(B), gamma^2 == .(gamma_sq), beta ==.(beta)))
+  }
+  
   # Create the faceted plot
   plot = ggplot(group_results, aes(x = G, y = betahat_var)) +
-    geom_line(color = "darkblue") +
-    geom_point(color = "darkblue") +
-    geom_point(data = lowest_points, aes(x = G, y = betahat_var), color = "red", size = 2) +
+    geom_line(color = "black") +
+    geom_point(color = "black") +
+    geom_point(data = lowest_points, aes(x = G, y = betahat_var), color = "darkorange", size = 2) +
     geom_text(data = lowest_points, aes(x = G, y = betahat_var, 
                                         label = paste("Min. var =", round(betahat_var, 2), 
                                                       "\n at G =", G, ", R =", R)), 
-              vjust = -1.1, hjust = 0.75 ,color = "red", size = 3) +
+              vjust = -1.2, hjust = 0.5 ,color = "darkorange", size = 3) +
     labs(
-      title = paste("Relationship between Variance of the Beta Estimate and the Number of Clusters"),
-      subtitle = bquote(list(B ==.(B), gamma^2 == .(gamma_sq), sigma_^2 == .(sigma_sq), beta ==.(beta))),
+      title = paste("Relationship between Variance of the Beta Estimate and the Number of Clusters, ",
+                    "Y ~ ", dist),
+      subtitle = subtitle_text,
       x = " G: Number of Clusters",
-      y = "Var(Betahat)"
+      y = "Var(Beta Estimate)"
     ) +
     facet_wrap(~ facet_label,
-               scales = "free_x") +
+               scales = "free") +
     theme_minimal()
   
   print(plot)
@@ -323,19 +374,19 @@ var_vs_G_plot_by_facet <- function(results, group_name) {
 ```
 
 
-```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 alpha_list <- rep(4, 12)
 beta_list <- c(2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2)
 gamma_sq_list <- c(1, 1, 1, 0.58, 0.58, 0.58, 1, 1, 1, 0.58, 0.58, 0.58)
 sigma_sq_list <- c(1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4)
 B_list <- c(3000, 3000, 3000, 2000, 2000, 2000, 5000, 5000, 5000, 4000, 4000, 4000)
-c1_list <- c(100, 50, 50, 100, 50, 50, 100, 50, 50, 100, 50, 50)
-c2_list <- c(5, 5, 10, 5, 5, 10, 5, 5, 10, 5, 5, 10)
+c1_list <- c(100, 100, 50, 100, 100, 50, 100, 100, 50, 100, 100, 50)
+c2_list <- c(5, 10, 10, 5, 10, 10, 5, 10, 10, 5, 10, 10)
 
 # num_cores <- parallel::detectCores() - 2
 # registerDoParallel(num_cores)
 
-results_list <- list()
+Normal_results_list <- list()
 
 for (i in 1:12){
 #foreach (i = 1:9, .packages = c("lme4")) %dopar%{
@@ -350,6 +401,61 @@ for (i in 1:12){
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
                              # !!!!!!!!
+                             n_simulations = 5)
+  
+  # Add the group to the result for plotting
+  result$group <- paste0("Group ", ceiling(i / 3))
+  
+  # Combine c1 and c2 to create a single label for facetting
+  result$facet_label <- paste0("c1 = ", c1, " and c2 = ", c2)
+  
+  # Store the result in the list
+  Normal_results_list[[i]] <- result
+}
+
+Normal_combined_results <- do.call(rbind, Normal_results_list)
+var_vs_G_plot_by_facet(Normal_combined_results, 
+                       group_name = "Group 1",
+                       dist = "Normal")
+
+#stopCluster(num_cores)
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+var_vs_G_plot_by_facet(Normal_combined_results, 
+                       group_name = "Group 2",
+                       dist = "Normal")
+```
+
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+var_vs_G_plot_by_facet(Normal_combined_results, 
+                       group_name = "Group 3",
+                       dist = "Normal")
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+var_vs_G_plot_by_facet(Normal_combined_results, 
+                       group_name = "Group 4",
+                       dist = "Normal")
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+Poisson_results_list <- list()
+
+for (i in 1:12){
+#foreach (i = 1:9, .packages = c("lme4")) %dopar%{
+  alpha = alpha_list[i]
+  beta = beta_list[[i]]
+  gamma_sq = gamma_sq_list[i]
+  sigma_sq = sigma_sq_list[i]
+  B = B_list[i]
+  c1 = c1_list[i]
+  c2 = c2_list[i]
+  result <- find_optimal_G_R(dist = "Poisson", alpha = alpha, beta = beta, 
+                             gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
+                             B = B, c1 = c1, c2 = c2,
+                             # !!!!!!!!
                              n_simulations = 10)
   
   # Add the group to the result for plotting
@@ -359,34 +465,35 @@ for (i in 1:12){
   result$facet_label <- paste0("c1 = ", c1, " and c2 = ", c2)
   
   # Store the result in the list
-  results_list[[i]] <- result
+  Poisson_results_list[[i]] <- result
 }
 
-combined_results <- do.call(rbind, results_list)
-var_vs_G_plot_by_facet(combined_results, group_name = "Group 1")
+Poisson_combined_results <- do.call(rbind, Poisson_results_list)
+var_vs_G_plot_by_facet(Poisson_combined_results, 
+                       group_name = "Group 1",
+                       dist = "Poisson")
 
-#stopCluster(num_cores)
 ```
 
-```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
-var_vs_G_plot_by_facet(combined_results, group_name = "Group 2")
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+var_vs_G_plot_by_facet(Poisson_combined_results, 
+                       group_name = "Group 2",
+                       dist = "Poisson")
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+var_vs_G_plot_by_facet(Poisson_combined_results, 
+                       group_name = "Group 3",
+                       dist = "Poisson")
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+var_vs_G_plot_by_facet(Poisson_combined_results, 
+                       group_name = "Group 4",
+                       dist = "Poisson")
 ```
 
 
-```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
-var_vs_G_plot_by_facet(combined_results, group_name = "Group 3")
-```
-
-```{r, fig.width = 10, fig.height = 4, message = F, warning = F}
-var_vs_G_plot_by_facet(combined_results, group_name = "Group 4")
-```
-
-
-## Estimands
-
-## Methods to Evaluate
-
-## Performance Measures
 
 # \textcolor{orange}{RESULTS}
 
