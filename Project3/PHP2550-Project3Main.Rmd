@@ -65,63 +65,103 @@ result_path = paste0(here::here(), "/Project3/results")
 
 ## Aims and Objectives
 
-**Aim 1**: To evaluate the impact of different design choices (number of clusters $G$ and observations per cluster $R$) under the budget constraint $B$ and the fixed cluster cost for the first sample $c_1$ and the cost for all additional samples in the same cluster $c_2$ where $c_2 < c_1$.
+- *Aim 1*: To evaluate the impact of different design choices (number of clusters $G$ and observations per cluster $R$) under the budget constraint $B$ and the fixed cluster cost for the first sample $c_1$ and the cost for all additional samples in the same cluster $c_2$ where $c_2 < c_1$.
 
-**Aim 2**: To explore the relationships between the underlying data generation mechanism parameters (e.g., variance components) and cost structure (relative costs $c_1/c_2$) and their impacts on estimation efficiency of treatment effects.
+- *Aim 2*: To explore the relationships between the underlying data generation mechanism parameters (e.g., variance components) and cost structure (relative costs $c_1/c_2$) and their impacts on estimation efficiency of treatment effects.
 
-**Aim 3**: To compare performance under different outcome distributions (Normal vs. Poisson).
+- *Aim 3*: To compare performance under different outcome distributions (Normal vs. Poisson).
 
 ## Data Generating Mechanisms
 
-#### Cost constraint
+**Budget constraint**: The budget constraint is defined as:
 
 $$
 c_1 + G(R-1)c_2 \leq B
 $$
+This reflects that each cluster incurs a higher cost for the initial observation ($c_1$), while subsequent observations within the same cluster are less costly ($c_2$).
+
 
 #### Hierarchical Model for Normal Outcomes
 
-1.  **Cluster-level mean:**
+For the Normal outcome model, the cluster-level outcomes are generated based on a linear model that incorporates both fixed treatment effects and random cluster effects, where the random effects introduce variability specific to each cluster. Subsequently, each observation within a cluster is generated with additional residual noise, capturing within-cluster variability. This hierarchical approach allows us to separately model both the variability between clusters and the variability within each cluster.
 
+1)  **Cluster-level mean:**
 $$
-\mu_{i0} = \alpha + \beta X_i \quad (\text{fixed effect for treatment/control groups})\\ 
+\mu_{i0} = \alpha + \beta X_i \quad (\text{fixed effect for treatment/control groups}) \\  
 \mu_i \mid \epsilon_i = \mu_{i0} + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2) \rightarrow
 \mu_i \sim N(\mu_{i0}, \gamma^2)
 $$
 
-2.  **Observation-level outcomes:**
-
+2)  **Observation-level outcomes:**
 $$
-Y_{ij} \mid \mu_i = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2) \rightarrow Y_{ij} \mid \mu_i \sim N(\mu_i, \sigma^2)$$
+Y_{ij} \mid \mu_i = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2) \rightarrow Y_{ij} \mid \mu_i \sim N(\mu_i, \sigma^2)
+$$
 
-3.  **Marginal outcome distribution:**
-$$\text{Marginal mean:} \quad \mathbb{E}[Y\_{ij} \mid X_i] = \alpha + \beta X_i , \quad
-\text{Marginal variance:} \quad \text{Var}(Y\_{ij} \mid X_i) = \gamma^2 + \sigma^2 $$
+3)  **Marginal outcome distribution:**
+$$
+\text{Marginal mean:} \quad \mathbb{E}[Y\_{ij} \mid X_i] = \alpha + \beta X_i , \quad
+\text{Marginal variance:} \quad \text{Var}(Y\_{ij} \mid X_i) = \gamma^2 + \sigma^2 
+$$
 
 #### Hierarchical Model for Poisson Outcomes
 
-1.  **Cluster-level mean:**
+For the Poisson outcome model, the cluster-level outcome is modeled on the logarithmic scale to ensure positivity, which is characteristic of count data. Each observation within a cluster is modeled as a Poisson random variable with a rate parameter determined by the cluster-level mean. The hierarchical structure is preserved by first modeling the cluster mean and then generating individual outcomes from that cluster-specific rate. This approach is useful in scenarios where outcomes are counts and are assumed to follow a Poisson distribution.
+
+1)  **Cluster-level mean:**
 $$
 \log(\mu_i) = \alpha + \beta X_i + \epsilon_i, \quad \epsilon_i \sim N(0, \gamma^2)\\
 \mu_i \sim \text{LogNormal}(\alpha + \beta X_i, \gamma^2)
 $$
 
-2.  **Observation-level outcomes:** 
+2)  **Observation-level outcomes:** 
 $$
     Y_{ij} \mid \mu_i \sim \text{Poisson}(\mu_i)
 $$
 
-3.  **Summing within a cluster:** 
+3)  **Summing within a cluster:** 
 $$
 Y_i = \sum_{j=1}^R Y_{ij} \quad and \quad Y_i \mid \mu_i \sim \text{Poisson}(R \mu_i)
 $$ 
 
 
-## Estimands
+## Estimand
+
+**Average Treatment Effect ($\beta$)** : The primary estimand of interest is to estimate the average treatment effect $\hat{\beta}$. This parameter captures the difference in outcomes between treatment and control groups. For the Normal outcome model, $\beta$ represents the mean difference in outcomes, while in the Poisson outcome model, it represents the log-relative rate difference between treatment and control groups. And the ultimate objective related to the estimand is to optimize the study design to achieve precise estimates of $beta$. In other words, we would like to find the optimal combination of cluster size $G$ and number of observations per cluster $R$ that provides the most efficient allocation of resources while maintaining a budget constraint and thus minimizes the variance of $Var(\hat{\beta})$. More to be discussed in the "Performance Measures" subsection as follows.
 
 ## Methods to Evaluate
 
+The evaluation process involves conducting repeated simulations across a range of different design parameters, exploring how these parameters influence the variance of the estimated treatment effect ($\hat{\beta}$). Specifically, we aim to iterate through combinations of the number of clusters ($G$) and the number of observations per cluster ($R$) under a fixed budget constraint ($B$). This involves:
+
+  1) **Iterating through All Possible Values of $G$**:
+    - For each simulation scenario, we iterate $G$ from $G = 2$ to $\lfloor B / c_1 \rfloor$, where $c_1$ is the cost of sampling the first unit in each cluster. For each value of $G$, we compute the corresponding number of observations per cluster ($R$) such that the cost remains within budget:
+      \[
+      R = \left\lfloor \frac{B - G \cdot c_1}{G \cdot c_2} + 1 \right\rfloor
+      \]
+      where $c_2$ is the cost of additional samples within a cluster.
+
+  2) **Simulating 100 Times for Each Combination of $G$ and $R$**:
+    - For each combination of $G$ and $R$, we conduct 100 repeated simulations to generate datasets and fit the regression model. This helps us estimate the variance of the treatment effect ($\text{Var}(\hat{\beta})$) for that specific design configuration.
+
+  3) **Optimization to Find the Optimal Combination**:
+    - After running through all possible combinations of $G$ and $R$, the optimal combination is selected based on the variance of $\hat{\beta}$. Specifically, we aim to **find the combination of $G$ and $R$ that results in the smallest variance of $\hat{\beta}$**, indicating the most precise estimate under the given budget.
+
+Also, as of *Aim2*, to understand the impact of various parameters on the optimal design:
+
+    1) **Vary $c_1$ and $c_2$**, especially considering different ratios of $c_1/c_2$, to determine how changes in cost structure influence the optimal allocation of resources.
+    
+    2) **Vary $\sigma^2$ and $\gamma^2$**, representing within-cluster and between-cluster variance, respectively, to assess how different variance components affect the optimal design and the efficiency of the treatment effect estimation.
+    
+    3) **Evaluate Patterns and Relationships**:
+      - Analyze how changes in cost structure and variance components contribute to changes in the optimal design. This helps us derive practical recommendations for designing cluster-randomized trials under varying budgetary and variance conditions.
+
+
 ## Performance Measures
+
+1) **Variance of Treatment Effect Estimates ($Var(\hat{\beta})$)**: The most important performance metrics for this study is the variance of the estimated treatment effect. The variance quantifies the precision of the estimates. In this study, the design parameters-- such as the number of clusters ($G$) and the number of observations per cluster ($R$)-- are varied to determine how they affect the variance of $\hat{\beta}$ under a fixed $B$, $c_1$, and $c_2$. The aim is to determine which strategy provides the most efficient use of the budget in terms of reducing the variance of the estimated treatment effect.
+
+2) **Coverage Probability**: We evaluated the coverage probability of the estimated confidence intervals for the treatment effect. This metric assesses the proportion of confidence intervals that include the true value $\beta$. Mathematically, $\text{Coverage} = \Pr(\hat{\beta_{\alpha}}_{\text{ low}} \leq \beta_1 \leq \hat{\beta_{\alpha}}_{\text{ upp}}$, which is important for evaluating the reliability of the estimated treatment effect under different designs.
+
+# \textcolor{orange}{RESULTS}
 
 ```{r}
 #' @param alpha Intercept parameter (baseline mean).
@@ -456,7 +496,7 @@ for (i in 1:12){
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
                              # !!!!!!!!
-                             n_simulations = 10)
+                             n_simulations = 5)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -495,15 +535,13 @@ var_vs_G_plot_by_facet(Poisson_combined_results,
 
 
 
-# \textcolor{orange}{RESULTS}
-
 # \textcolor{orange}{CONCLUSION}
 
 # \textcolor{orange}{LIMITATIONS}
 
 # Data, and Code Availability
 
-This project is a collaboration with Dr. Zhijin Wu in the Biostatistics Department. Replication scripts and simulated data are available at <https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project2>.
+This project is a collaboration with Dr. Zhijin Wu in the Biostatistics Department. Replication scripts and simulated data are available at <https://github.com/YanweiTong-Iris/PHP2550-Fall24/tree/main/Project3>.
 
 # Reference
 
