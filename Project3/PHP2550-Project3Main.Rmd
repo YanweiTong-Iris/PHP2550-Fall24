@@ -12,6 +12,7 @@ link-citations: yes
 header-includes:
   - "\\usepackage{xcolor}"
   - "\\usepackage{amsmath}"
+  - "\\usepackage{booktabs}"
 abstract: |
   **Purpose:** 
   
@@ -269,7 +270,7 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq,
     R = floor((B - G * c1) / (c2 * G)) + 1
     if (R > 1) {
       betahats <- numeric(n_simulations)
-      t_values <- numeric(n_simulations)
+      z_values <- numeric(n_simulations)
       coverage <- numeric(n_simulations)
       
       data_list <- list()
@@ -287,7 +288,7 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq,
         tryCatch({
           model <- glmer(Y ~ X_obs + (1 | cluster_id), family = family, data = data)
           
-          # Get fixed effect estimate
+          # Get fixed ennn  ffect estimate
           betahats[sim] <- fixef(model)["X_obs"]
           
           # Calculate confidence interval and t-value if available
@@ -300,13 +301,13 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq,
             coverage[sim] <- NA
           }
           
-          # Extract t-value for power calculation
-          t_values[sim] <- summary(model)$coefficients["X_obs", "t value"]
+          # Extract z-value for power calculation
+          z_values[sim] <- coef(summary(model))["X_obs", "z value"]
         }, error = function(e) {
           # Handle model fitting failures by assigning NA
           betahats[sim] <- NA
           coverage[sim] <- NA
-          t_values[sim] <- NA
+          z_values[sim] <- NA
         })
         
         data_list[[sim]] <- data
@@ -326,7 +327,7 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq,
       
       # Remove NA values from betahats
       betahats <- betahats[!is.na(betahats)]
-      valid_t_values <- t_values[!is.na(t_values)]
+      valid_z_values <- z_values[!is.na(z_values)]
       valid_coverage <- coverage[!is.na(coverage)]
       
       if (length(betahats) > 0) {
@@ -340,8 +341,8 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq,
         coverage_prob <- mean(valid_coverage, na.rm = TRUE)
         
         # Calculate Power (proportion of t-values greater than critical value, assuming t distribution)
-        critical_t_value <- 1.98  # Approximate value for n=100
-        power <- mean(abs(valid_t_values) > critical_t_value, na.rm = TRUE)
+        critical_z_value <- 1.96  # Approximate value for large n
+        power <- mean(abs(valid_z_values) > critical_z_value, na.rm = TRUE)
         
         # Compare betahat_variance only if it is not NA
         if (!is.na(betahat_variance) && betahat_variance < min_variance) {
@@ -648,33 +649,31 @@ combined_results <- bind_rows(
 combined_results <- combined_results %>%
   arrange(model)
 
-combined_results <- combined_results %>%
-  rename(
-    `c1` = c1,
-    `c2` = c2,
-    expression(sigma^2) = sigma_sq,
-    expression(gamma^2) = gamma_sq,
-    "G" = G,
-    `R` = R,
-    `True Beta` = beta,
-     `hat(beta)` = betahat_mean,
-    `Estimated Beta Variance` = betahat_var,
-    `Bias` = bias,
-    `MSE` = MSE,
-    `Coverage Probability %` = coverage_prob * 100,
-    `Power` = power
-  )
-
 # Format numeric values to 4 decimal places
 combined_results <- combined_results %>%
   mutate(across(where(is.numeric), ~ round(.x, 4)))
 
 # Create a kable table with row groupings for "Y ~ Normal" and "Y ~ Poisson"
 kable_table <- combined_results %>%
-  #dplyr::select(-model) %>% 
-  kable(caption = "Summary for Performance Measures of the Optimal Design under Different Data Generating Settings") %>%
+  kable("latex",
+    caption = "Summary for Performance Measures of the Optimal Design under Different Data Generating Settings", 
+    col.names = c(
+      "Model", 
+      "c1", 
+      "c2", 
+      "$\\sigma^2$", 
+      "$\\gamma^2$", 
+      "G", 
+      "R", 
+      "True $\\beta$", 
+      "$\\mathrm{Mean}(\\hat{\\beta})$", 
+      "$\\mathrm{Var}(\\hat{\\beta})$", 
+      "Bias", 
+      "MSE", 
+      "Coverage", 
+      "Power"
+    ), escape = F, booktabs = T) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover")) %>%
-  #add_header_above(c(" " = 1, "Y ~ Normal" = nrow(normal_selected), "Y ~ Poisson" = nrow(poisson_selected))) %>%
   column_spec(1, bold = TRUE) %>%
   collapse_rows(columns = 1, valign = "top")
 
