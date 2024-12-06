@@ -30,9 +30,9 @@ The following packages were used in this analysis:
 
 2)  Table formatting: `gt`, `gtsummary`, `knitr`, `kableExtra`
 
-3)  Data visualization: `ggplot2`, `patchwork`, `grid`, `gridExtra`, `patchwork`,`naniar`, `pROC`, `RColorBrewer`, `cowplot`
+3)  Data visualization: `ggplot2`, `patchwork`, `grid`, `gridExtra`, `patchwork`,`egg`, `RColorBrewer`, `cowplot`
 
-4)  Statistical analyses: `glmnet`, `bestglm`, `leaps`, `glmulti`
+4)  Statistical analyses: `lme4`
 
 5)  Citations: `knitcitations`
 

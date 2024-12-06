@@ -61,7 +61,7 @@ result_path = paste0(here::here(), "/Project3/results")
 
 # \textcolor{orange}{INTRODUCTION}
 
-# \textcolor{orange}{SIMULATION DESIGN}
+# \textcolor{orange}{ADEMP SIMULATION DESIGN}
 
 ## Aims and Objectives
 
@@ -162,9 +162,11 @@ Note: FIXED BUDGET AND ONLY 2 BETAS
 
 1) **Variance of Treatment Effect Estimates ($Var(\hat{\beta})$)**: The most important performance metrics for this study is the variance of the estimated treatment effect. The variance quantifies the precision of the estimates. In this study, the design parameters-- such as the number of clusters ($G$) and the number of observations per cluster ($R$)-- are varied to determine how they affect the variance of $\hat{\beta}$ under a fixed $B$, $c_1$, and $c_2$. The aim is to determine which strategy provides the most efficient use of the budget in terms of reducing the variance of the estimated treatment effect.
 
-2) **Coverage Probability**: We evaluated the coverage probability of the estimated confidence intervals for the treatment effect. This metric assesses the proportion of confidence intervals that include the true value $\beta$. Mathematically, $\text{Coverage} = \Pr(\hat{\beta_{\alpha}}_{\text{ low}} \leq \beta_1 \leq \hat{\beta_{\alpha}}_{\text{ upp})}$, which is important for evaluating the reliability of the estimated treatment effect under different designs.
+2) **Bias**
 
-Note: !!!!Unbiased!!!
+3) **Coverage Probability**: We evaluated the coverage probability of the estimated confidence intervals for the treatment effect. This metric assesses the proportion of confidence intervals that include the true value $\beta$. Mathematically, $\text{Coverage} = \Pr(\hat{\beta_{\alpha}}_{\text{ low}} \leq \beta_1 \leq \hat{\beta_{\alpha}}_{\text{ upp})}$, which is important for evaluating the reliability of the estimated treatment effect under different designs.
+
+4) **Power**
 
 # \textcolor{orange}{RESULTS}
 
@@ -234,8 +236,9 @@ simulate_clustered_data <- function(dist = "Normal",
   data <- data.frame(Y, X_obs, cluster_id, observation_id, n_sim = n_sim_id)
   return(data)
 }
+```
 
-
+```{r}
 #' Find optimal G and R to minimize variance
 #'
 #' @param alpha Intercept parameter (baseline mean).
@@ -249,7 +252,8 @@ simulate_clustered_data <- function(dist = "Normal",
 #' @print List with optimal G, optimal R, and minimum variance.
 #' @return The result dataset with mean and var of Beta_hat for all G and R combination
 #' @export
-find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B, c1, c2, n_simulations = 100) {
+find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, 
+                             B, c1, c2, n_simulations = 100) {
   min_variance <- Inf
   best_G <- 0
   best_R <- 0
@@ -258,12 +262,15 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
                         gamma_sq = numeric(), sigma_sq = numeric(), 
                         B = numeric(), c1 = numeric(), c2 = numeric(),
                         G = integer(), R = integer(), 
-                        betahat = numeric(), variance = numeric())
+                        betahat_mean = numeric(), variance = numeric(),
+                        bias = numeric(), coverage_prob = numeric(), power = numeric())
   
   for (G in 2:(floor((B / c1)) - 1)) {
     R = floor((B - G * c1) / (c2 * G)) + 1
     if (R > 1) {
       betahats <- numeric(n_simulations)
+      t_values <- numeric(n_simulations)
+      coverage <- numeric(n_simulations)
       
       data_list <- list()
       
@@ -275,37 +282,66 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
                                         B, c1, c2, 
                                         G, R, n_sim = sim)
         family = ifelse(dist == "Normal", "gaussian", "poisson")
-        model <- glmer(Y ~ X_obs + (1 | cluster_id), family = family, data = data)
-        betahats[sim] <- fixef(model)["X_obs"]
+        
+        # Fit the model and handle convergence issues
+        tryCatch({
+          model <- glmer(Y ~ X_obs + (1 | cluster_id), family = family, data = data)
+          
+          # Get fixed effect estimate
+          betahats[sim] <- fixef(model)["X_obs"]
+          
+          # Calculate confidence interval and t-value if available
+          ci <- tryCatch(confint(model, parm = "X_obs", level = 0.95), error = function(e) NA)
+          
+          if (!is.na(ci[1]) && !is.na(ci[2])) {
+            # Check if true beta is within confidence interval (coverage probability)
+            coverage[sim] <- ifelse(ci[1] <= beta & ci[2] >= beta, 1, 0)
+          } else {
+            coverage[sim] <- NA
+          }
+          
+          # Extract t-value for power calculation
+          t_values[sim] <- summary(model)$coefficients["X_obs", "t value"]
+        }, error = function(e) {
+          # Handle model fitting failures by assigning NA
+          betahats[sim] <- NA
+          coverage[sim] <- NA
+          t_values[sim] <- NA
+        })
+        
         data_list[[sim]] <- data
       }
       
       # Combine all simulated datasets for this G and R combination
       combined_data <- do.call(rbind, data_list)
       
-      if (dist == "Normal"){
-        subfolder = paste0(data_path, 
-                                    "/", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
-                                    "_sigmasq_", sigma_sq,
-                                    "_B_", B, "_c1_", c1, "_c2_", c2)
-        if (!dir.exists(subfolder)){dir.create(subfolder)}
-      saveRDS(combined_data, paste0(subfolder,
-                                    "/simulated_data_G_", G, "_R_", R, ".rds"))
-      } else {
-        subfolder = paste0(data_path, 
-                                    "/", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
-                                    "_B_", B, "_c1_", c1, "_c2_", c2)
-        if (!dir.exists(subfolder)){dir.create(subfolder)}
-        saveRDS(combined_data, paste0(subfolder,
-                                    "/simulated_data_G_", G, "_R_", R, ".rds"))
-      }
+      subfolder = paste0(data_path, 
+                         "/", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
+                         ifelse(dist == "Normal", "_sigmasq_", ""), sigma_sq,
+                         "_B_", B, "_c1_", c1, "_c2_", c2)
+      
+      if (!dir.exists(subfolder)){dir.create(subfolder)}
+      
+      saveRDS(combined_data, paste0(subfolder, "/simulated_data_G_", G, "_R_", R, ".rds"))
       
       # Remove NA values from betahats
       betahats <- betahats[!is.na(betahats)]
+      valid_t_values <- t_values[!is.na(t_values)]
+      valid_coverage <- coverage[!is.na(coverage)]
       
       if (length(betahats) > 0) {
         betahat_mean <- mean(betahats)
         betahat_variance <- var(betahats)
+        
+        # Calculate Bias
+        bias <- betahat_mean - beta
+        
+        # Calculate Coverage Probability
+        coverage_prob <- mean(valid_coverage, na.rm = TRUE)
+        
+        # Calculate Power (proportion of t-values greater than critical value, assuming t distribution)
+        critical_t_value <- 1.98  # Approximate value for n=100
+        power <- mean(abs(valid_t_values) > critical_t_value, na.rm = TRUE)
         
         # Compare betahat_variance only if it is not NA
         if (!is.na(betahat_variance) && betahat_variance < min_variance) {
@@ -316,55 +352,58 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
       } else {
         betahat_mean <- NA
         betahat_variance <- NA
+        bias <- NA
+        coverage_prob <- NA
+        power <- NA
       }
     
+      if (dist == "Poisson"){
+        sigma_sq <- NA
+      }  
       
-    if (dist == "Poisson"){
-      sigma_sq = NA
-    }  
-      
-    results <- rbind(
-      results,
-      data.frame(
-        alpha = alpha,
-        beta = beta,
-        gamma_sq = gamma_sq,
-        sigma_sq = sigma_sq,
-        B = B,
-        c1 = c1,
-        c2 = c2,
-        G = G,
-        R = R,
-        betahat_mean = betahat_mean,
-        betahat_var = betahat_variance
+      # Append results for this combination of G and R
+      results <- rbind(
+        results,
+        data.frame(
+          alpha = alpha,
+          beta = beta,
+          gamma_sq = gamma_sq,
+          sigma_sq = sigma_sq,
+          B = B,
+          c1 = c1,
+          c2 = c2,
+          G = G,
+          R = R,
+          betahat_mean = betahat_mean,
+          betahat_var = betahat_variance,
+          bias = bias,
+          coverage_prob = coverage_prob,
+          power = power
+        )
       )
-    )
-  }}
-  
-  if (dist == "Normal"){
-    result_save = paste0(
-      result_path, 
-      "/simulation_results_", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
-      "_sigmasq_", sigma_sq,"_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
-    )
-  } else {
-    result_save = paste0(
-      result_path, 
-      "/simulation_results_", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
-      "_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
-    )
+    }
   }
+  
+  # Save the results
+  result_save <- paste0(
+    result_path, 
+    "/simulation_results_", dist, "_beta_", beta, "_gammasq_", gamma_sq, 
+    ifelse(dist == "Normal", "_sigmasq_", ""), sigma_sq,
+    "_B_", B, "_c1_", c1, "_c2_", c2, ".csv"
+  )
   
   write.csv(
     results,
     result_save,
     row.names = FALSE
   )
-  return(results)
   
+  return(results)
 }
 
+```
 
+```{r}
 #' Make the point plot for Var(Betahat) vs. G
 #'
 #' @param result The result dataset
@@ -372,7 +411,8 @@ find_optimal_G_R <- function(dist = "Normal", alpha, beta, gamma_sq, sigma_sq, B
 #' @print The point plot with Var(Betahat) vs G.
 var_vs_G_plot_by_facet <- function(results, group_name, dist, 
                                    # for plotting purpose
-                                   title.indicator = T, x.title.indicator = T) {
+                                   title.indicator = T, 
+                                   x.title.indicator = T) {
   
   # Filter results for the specified group
   group_results <- results %>% filter(group == group_name)
@@ -391,9 +431,9 @@ var_vs_G_plot_by_facet <- function(results, group_name, dist,
   sigma_sq = unique(group_results[["sigma_sq"]])
   
   if (dist == "Normal"){
-    subtitle_text = bquote(list(B ==.(B), gamma^2 == .(gamma_sq), sigma^2 == .(sigma_sq), beta ==.(beta)))
+    subtitle_text = bquote(list(gamma^2 == .(gamma_sq), sigma^2 == .(sigma_sq), beta ==.(beta)))
   } else{
-    subtitle_text = bquote(list(B ==.(B), gamma^2 == .(gamma_sq), beta ==.(beta)))
+    subtitle_text = bquote(list(gamma^2 == .(gamma_sq), beta ==.(beta)))
   }
   
   # Create the faceted plot
@@ -434,34 +474,33 @@ var_vs_G_plot_by_facet <- function(results, group_name, dist,
 ```
 
 
-```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+```{r, fig.width = 10, fig.height = 2.5, message = F, warning = F}
 alpha_list <- rep(4, 12)
-beta_list <- c(4, 4, 4, 1, 1, 1, 1, 1, 1, 4, 4, 4)
+beta_list <- c(4, 4, 4, 2, 2, 2, 2, 2, 2, 4, 4, 4)
 gamma_sq_list <- c(1, 1, 1, 0.58, 0.58, 0.58, 1, 1, 1, 0.58, 0.58, 0.58)
 sigma_sq_list <- c(1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4)
 B_list <- rep(4000, 12)
 c1_list <- c(100, 100, 50, 100, 100, 50, 100, 100, 50, 100, 100, 50)
 c2_list <- c(5, 10, 10, 5, 10, 10, 5, 10, 10, 5, 10, 10)
 
-# num_cores <- parallel::detectCores() - 2
-# registerDoParallel(num_cores)
-
-Normal_results_list <- list()
-
-for (i in 1:12){
-#foreach (i = 1:9, .packages = c("lme4")) %dopar%{
-  alpha = alpha_list[i]
-  beta = beta_list[[i]]
-  gamma_sq = gamma_sq_list[i]
-  sigma_sq = sigma_sq_list[i]
-  B = B_list[i]
-  c1 = c1_list[i]
-  c2 = c2_list[i]
+num_cores <- detectCores() - 1
+cl <- makeCluster(num_cores)
+registerDoParallel(cl)
+  
+Normal_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("lme4", "dplyr")) %dopar% {
+  alpha <- alpha_list[i]
+  beta <- beta_list[i]
+  gamma_sq <- gamma_sq_list[i]
+  sigma_sq <- sigma_sq_list[i]
+  B <- B_list[i]
+  c1 <- c1_list[i]
+  c2 <- c2_list[i]
+  
+  # Call find_optimal_G_R function
   result <- find_optimal_G_R(dist = "Normal", alpha = alpha, beta = beta, 
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
-                             # !!!!!!!!
-                             n_simulations = 20)
+                             n_simulations = 10)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -469,26 +508,27 @@ for (i in 1:12){
   # Combine c1 and c2 to create a single label for facetting
   result$facet_label <- paste0("c1 = ", c1, " and c2 = ", c2)
   
-  # Store the result in the list
-  Normal_results_list[[i]] <- result
+  return(result)
 }
 
-Normal_combined_results <- do.call(rbind, Normal_results_list)
+stopCluster(cl)
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Normal_combined_results, 
                        group_name = "Group 1",
                        dist = "Normal",
                        title.indicator = T, 
                        x.title.indicator = F)
-
-#stopCluster(num_cores)
 ```
+
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Normal_combined_results, 
                        group_name = "Group 2",
                        dist = "Normal",
                        title.indicator = F, 
-                       x.title.indicator = f)
+                       x.title.indicator = F)
 ```
 
 
@@ -509,14 +549,11 @@ var_vs_G_plot_by_facet(Normal_combined_results,
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
+num_cores <- detectCores() - 1
+cl <- makeCluster(num_cores)
+registerDoParallel(cl)
 
-Poisson_results_list <- list()
-
-num_cores <- parallel::detectCores() - 2
-registerDoParallel(num_cores)
-
-#for (i in 1:9){
-foreach (i = 1:9, .packages = c("lme4")) %dopar%{
+Poisson_combined_results <- foreach(i = 1:9, .combine = rbind, .packages = c("lme4", "dplyr")) %dopar% {
   alpha = alpha_list[i]
   beta = beta_list[[i]]
   gamma_sq = gamma_sq_list[i]
@@ -536,17 +573,19 @@ foreach (i = 1:9, .packages = c("lme4")) %dopar%{
   # Combine c1 and c2 to create a single label for facetting
   result$facet_label <- paste0("c1 = ", c1, " and c2 = ", c2)
   
-  # Store the result in the list
-  Poisson_results_list[[i]] <- result
+  return(result)
 }
+stopCluster(cl)
 
-Poisson_combined_results <- do.call(rbind, Poisson_results_list)
+
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 var_vs_G_plot_by_facet(Poisson_combined_results, 
                        group_name = "Group 1",
                        dist = "Poisson",
                        title.indicator = T, 
                        x.title.indicator = F)
-stopCluster(num_cores)
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
@@ -566,6 +605,82 @@ var_vs_G_plot_by_facet(Poisson_combined_results,
 ```
 
 
+```{r}
+# Function to select the row with the minimum betahat_var for each group
+select_min_var_rows <- function(results) {
+  results %>%
+    group_by(group, facet_label) %>%
+    filter(!is.na(betahat_var)) %>%  
+    slice_min(betahat_var, with_ties = FALSE) %>%  # Select the row with the minimum betahat_var, ignoring ties
+    ungroup()
+}
+
+# Selecting rows with the minimum betahat_var for each group
+normal_min_var <- select_min_var_rows(Normal_combined_results)
+poisson_min_var <- select_min_var_rows(Poisson_combined_results)
+
+# Adding MSE = bias^2 + var(beta)
+normal_min_var <- normal_min_var %>%
+  mutate(MSE = bias^2 + betahat_var)
+
+poisson_min_var <- poisson_min_var %>%
+  mutate(sigma_sq = NA,  # Set sigma_sq to NA for Poisson results
+         MSE = bias^2 + betahat_var)
+
+# Select relevant columns
+normal_selected <- normal_min_var %>%
+  mutate(model = "Y ~ Normal") %>% 
+  dplyr::select(model, c1, c2, sigma_sq, gamma_sq, G, R, beta, betahat_mean, 
+                betahat_var, bias, MSE, coverage_prob, power)
+
+poisson_selected <- poisson_min_var %>%
+  mutate(model = "Y ~ Poisson") %>% 
+  dplyr::select(model, c1, c2, sigma_sq, gamma_sq, G, R, beta, betahat_mean, 
+                betahat_var, bias, MSE, coverage_prob, power)
+
+# Combine Normal and Poisson results into one table
+combined_results <- bind_rows(
+  normal_selected,
+  poisson_selected 
+)
+
+# Arrange the results so that Normal rows come first, followed by Poisson rows
+combined_results <- combined_results %>%
+  arrange(model)
+
+combined_results <- combined_results %>%
+  rename(
+    `c1` = c1,
+    `c2` = c2,
+    expression(sigma^2) = sigma_sq,
+    expression(gamma^2) = gamma_sq,
+    "G" = G,
+    `R` = R,
+    `True Beta` = beta,
+     `hat(beta)` = betahat_mean,
+    `Estimated Beta Variance` = betahat_var,
+    `Bias` = bias,
+    `MSE` = MSE,
+    `Coverage Probability %` = coverage_prob * 100,
+    `Power` = power
+  )
+
+# Format numeric values to 4 decimal places
+combined_results <- combined_results %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4)))
+
+# Create a kable table with row groupings for "Y ~ Normal" and "Y ~ Poisson"
+kable_table <- combined_results %>%
+  #dplyr::select(-model) %>% 
+  kable(caption = "Summary for Performance Measures of the Optimal Design under Different Data Generating Settings") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover")) %>%
+  #add_header_above(c(" " = 1, "Y ~ Normal" = nrow(normal_selected), "Y ~ Poisson" = nrow(poisson_selected))) %>%
+  column_spec(1, bold = TRUE) %>%
+  collapse_rows(columns = 1, valign = "top")
+
+# Print the table (in R Markdown, this will render the table)
+kable_table
+```
 
 
 # \textcolor{orange}{CONCLUSION}
