@@ -1,5 +1,5 @@
 ---
-title: "TBD"
+title: "Optimal Allocation of Clusters and Observations Under Budget Constraints in Clustered Experimental Designs"
 subtitle: "PHP2550 Project 3: A simulation study"
 author: "Yanwei (Iris) Tong"
 date: "2024-11-12"
@@ -62,9 +62,9 @@ result_path = paste0(here::here(), "/Project3/results")
 
 # \textcolor{orange}{INTRODUCTION}
 
-Clustered experimental designs with cost constraints are commonly seen in real-world applications, such as energy consumption studies, cloud computational resource allocation, and healthcare interventions. In these scenarios, the cost of recruiting the first subject in a cluster (e.g., setting up a server or initiating an intervention) is often significantly higher than that of recruiting additional subjects. Understanding how to efficiently allocate resources under such budget constraints can help optimize decision-making processes and improve the statistical power and accuracy of the experiments. In this study, we aim to provide practical recommendations for researchers on how to allocate resources effectively in clustered settings to achieve precise and reliable treatment effect estimates.
+Clustered experimental designs with cost constraints are commonly seen in real-world applications, such as energy consumption studies (@chen2018reducing), cloud computational resource allocation (@du2000memory), and clinical trials/healthcare interventions (@van2012calculating). In these scenarios, the cost of recruiting the first subject in a cluster (e.g., setting up a server or initiating an intervention) is often significantly higher than that of recruiting additional subjects. Understanding how to efficiently allocate resources under such budget constraints can help optimize decision-making processes and improve the statistical power and accuracy of the experiments. In this study, we aim to provide practical recommendations for researchers on how to allocate resources effectively in clustered settings to achieve precise and reliable treatment effect estimates.
 
-In this project, we aim to explore the optimal design of cluster-randomized trials under budget constraints. Specifically, we investigate the effects of different numbers of clusters (G) and observations per cluster (R) on the precision of the estimated treatment effect (β), given a fixed budget (B) and different cost structures for sampling. Our approach uses a simulation-based methodology to determine the best combination of design parameters that minimizes the variance of the estimated treatment effect. We consider how varying key parameters, such as between-cluster and within-cluster variances, as well as the cost of sampling the first unit in each cluster () and subsequent units (), affects the overall efficiency of the design.
+In this project, we aim to explore the optimal design of cluster-randomized trials under budget constraints. Specifically, we investigate the effects of different numbers of clusters ($G$) and observations per cluster ($R$) on the precision of the estimated treatment effect ($\beta$), given a fixed budget ($B$) and different cost structures for sampling. Our approach uses a simulation-based methodology to determine the best combination of design parameters that minimizes the variance of the estimated treatment effect. We consider how varying key parameters, such as between-cluster and within-cluster variances, as well as the cost of sampling the first unit in each cluster ($c_1$) and subsequent units ($c_2$), affects the overall efficiency of the design.
 
 # \textcolor{orange}{ADEMP SIMULATION DESIGN}
 
@@ -509,7 +509,7 @@ Normal_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("lm
   result <- find_optimal_G_R(dist = "Normal", alpha = alpha, beta = beta, 
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
-                             n_simulations = 10)
+                             n_simulations = 30)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -586,7 +586,7 @@ Poisson_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("l
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
                              # !!!!!!!!
-                             n_simulations = 10)
+                             n_simulations = 30)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
