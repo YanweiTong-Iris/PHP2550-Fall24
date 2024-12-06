@@ -18,11 +18,11 @@ abstract: |
   
   **Methods**: In this study, we conducted a series of simulation experiments to investigate the impact of different design choices on the efficiency of treatment effect estimates under a fixed budget constraint ($B$). The number of clusters ($G$), was systematically iterated/varied to explore their effect on the variance of the estimated treatment effect ($\hat{\beta}$). For each value of $G$, the maximum feasible value of observations per cluster ($R$) was determined to remain within budget. We then simulated data 100 times for each combination of $G$ and $R$ and fitted hierarchical models to obtain estimates of $\hat{\beta}$. Additionally, we examined the influence of other parameters, such as within-cluster variance ($\sigma^2$) for Y~Normal, between-cluster variance ($\gamma^2$) for both Y~Normal and Poisson, and cost ratio structures $c_1/c_2$ to investigate their impacts on finding the optimal design. Key performance measures included variance, empirical bias, MSE, coverage probability, and power of the estimated treatment effects. This allowed us to derive insights into the trade-offs between cluster size and cluster composition for efficient resource allocation.    
   
-  **Results and conclusion**: 
+  **Results and conclusion**: The simulation results showed that the optimal $G$ and $R$ are influenced by the relative costs ($c_1/c_2$) and the variance components ($\gamma^2$, $\sigma^2$). As $c_1$ decreased or $c_2$ increased, the optimal design favored more clusters with fewer observations per cluster. Reducing between-cluster variability ($\gamma^2$) led to a preference for fewer clusters, while increasing within-cluster variability ($\sigma^2$) required more clusters to minimize variance. The consistent finding across different scenarios was that minimizing the variance of the treatment effect estimate led to consistently high coverage probability and power, highlighting the robustness of the chosen optimal designs.
   
 
 geometry: margin=1in
-fontsize: 10.5pt
+fontsize: 11pt
 ---
 
 ```{r setup, include=FALSE}
@@ -61,6 +61,10 @@ result_path = paste0(here::here(), "/Project3/results")
 ```
 
 # \textcolor{orange}{INTRODUCTION}
+
+Clustered experimental designs with cost constraints are commonly seen in real-world applications, such as energy consumption studies, cloud computational resource allocation, and healthcare interventions. In these scenarios, the cost of recruiting the first subject in a cluster (e.g., setting up a server or initiating an intervention) is often significantly higher than that of recruiting additional subjects. Understanding how to efficiently allocate resources under such budget constraints can help optimize decision-making processes and improve the statistical power and accuracy of the experiments. In this study, we aim to provide practical recommendations for researchers on how to allocate resources effectively in clustered settings to achieve precise and reliable treatment effect estimates.
+
+In this project, we aim to explore the optimal design of cluster-randomized trials under budget constraints. Specifically, we investigate the effects of different numbers of clusters (G) and observations per cluster (R) on the precision of the estimated treatment effect (β), given a fixed budget (B) and different cost structures for sampling. Our approach uses a simulation-based methodology to determine the best combination of design parameters that minimizes the variance of the estimated treatment effect. We consider how varying key parameters, such as between-cluster and within-cluster variances, as well as the cost of sampling the first unit in each cluster () and subsequent units (), affects the overall efficiency of the design.
 
 # \textcolor{orange}{ADEMP SIMULATION DESIGN}
 
@@ -434,10 +438,10 @@ var_vs_G_plot_by_facet <- function(results, group_name, dist,
   sigma_sq = unique(group_results[["sigma_sq"]])
   
   if (dist == "Normal"){
-    subtitle_text = bquote(list(gamma^2 == .(gamma_sq), sigma^2 == .(sigma_sq), beta ==.(beta))),
+    subtitle_text = bquote(list(gamma^2 == .(gamma_sq), sigma^2 == .(sigma_sq), beta ==.(beta)))
     fig_num = 1
   } else{
-    subtitle_text = bquote(list(gamma^2 == .(gamma_sq), beta ==.(beta))),
+    subtitle_text = bquote(list(gamma^2 == .(gamma_sq), beta ==.(beta)))
     fig_num = 2
   }
   
@@ -488,7 +492,7 @@ B_list <- rep(4000, 12)
 c1_list <- c(100, 100, 50, 100, 100, 50, 100, 100, 50, 100, 100, 50)
 c2_list <- c(5, 10, 10, 5, 10, 10, 5, 10, 10, 5, 10, 10)
 
-num_cores <- detectCores() - 1
+num_cores <- detectCores() - 2
 cl <- makeCluster(num_cores)
 registerDoParallel(cl)
   
@@ -505,7 +509,7 @@ Normal_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("lm
   result <- find_optimal_G_R(dist = "Normal", alpha = alpha, beta = beta, 
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
-                             n_simulations = 100)
+                             n_simulations = 10)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -519,7 +523,7 @@ Normal_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("lm
 stopCluster(cl)
 ```
 
-The first row of Figure 1 presents the relationship between the variance of the beta estimate and $G$ for different cost scenarios, with a fixed budget of $B = 4000$ and an outcome distribution following a normal model ($Y \sim \text{Normal}$). The black line indicates the variance trend, while the orange point represents the configuration (combination of $G$ and $R$) with the minimum variance. Each panel corresponds to a different combination of $c_1$ and $c_2$, showing the overall trend of variance reduction as the number of clusters ($G$) changes, and indicating the optimal design configuration. In all three panels, we observed a general trend where the variance of the $\hat{\beta}$ initially decreases as $G$ increases, reaches a minimum, and then fluctuates or remains relatively low at higher $G$ values. 
+The first row of **Figure 1** presents the relationship between the variance of the beta estimate and $G$ for different cost scenarios, with a fixed budget of $B = 4000$ and an outcome distribution following a normal model ($Y \sim \text{Normal}$). The black line indicates the variance trend, while the orange point represents the configuration (combination of $G$ and $R$) with the minimum variance. Each panel corresponds to a different combination of $c_1$ and $c_2$, showing the overall trend of variance reduction as the number of clusters ($G$) changes, and indicating the optimal design configuration. In all three panels, we observed a general trend where the variance of the $\hat{\beta}$ initially decreases as $G$ increases, reaches a minimum, and then fluctuates or remains relatively low at higher $G$ values. 
 
 When $c_1 = 100$ and $c_2 = 10$, the number of clusters that minimizes variance is relatively high ($G = $). The higher $c_2$ implies that adding more observations within clusters is expensive, favoring an allocation with more clusters and fewer observations per cluster. With $c_1 = 100$ and $c_2 = 5$, the optimal $G$ is slightly lower ($G = $) since the reduced $c_2$ cost makes adding observations less expensive, but a high number of clusters is still favored. When $c_1 = 50$ and $c_2 = 10$, the optimal number of clusters increases further ($G = $) due to the lower cost per cluster, favoring designs with more clusters and fewer observations within each cluster.
 
@@ -559,14 +563,14 @@ var_vs_G_plot_by_facet(Normal_combined_results,
                        x.title.indicator = T)
 ```
 
-Looking at the overall pattern observed across the whole four rows of Figure 1 reveals the relationship between different variance parameters ($\gamma^2$ and $\sigma^2$) and the optimal combination of $G$ and $R$ that minimize the variance of the treatment effect estimate ($\hat{\beta}$).
+Looking at the overall pattern observed across the whole four rows of **Figure 1** reveals the relationship between different variance parameters ($\gamma^2$ and $\sigma^2$) and the optimal combination of $G$ and $R$ that minimize the variance of the treatment effect estimate ($\hat{\beta}$).
 
 When $\gamma^2$ is higher, such as in the first and third rows, the optimal number of clusters tends to be higher. This is because between-cluster variability is greater, and having more clusters helps capture that variability effectively. Lower values of $\sigma^2$, indicating less within-cluster variance, generally result in a more precise estimate, as seen by the overall lower variance of $\hat{\beta}$ across the clusters in these scenarios.
 
 Conversely, when $\sigma^2$ increases (seen in the third and fourth rows), the optimal $G$ becomes slightly lower compared to the scenarios with lower $\sigma^2$. The higher within-cluster variability makes it more efficient to allocate budget towards a balanced design between clusters and observations per cluster, as reflected in the reduced values of $G$.
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
-num_cores <- detectCores() - 1
+num_cores <- detectCores() - 2
 cl <- makeCluster(num_cores)
 registerDoParallel(cl)
 
@@ -582,7 +586,7 @@ Poisson_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("l
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
                              # !!!!!!!!
-                             n_simulations = 100)
+                             n_simulations = 10)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -628,6 +632,15 @@ var_vs_G_plot_by_facet(Poisson_combined_results,
                        title.indicator = F, 
                        x.title.indicator = T)
 ```
+
+**Figure 2** for the Poisson models exhibits a similar pattern where the optimal number of clusters ($G$) is highly sensitive to changes in the cost structure ($c_1$ and $c_2$). Generally, a lower cost per observation within a cluster ($c_2$) allows for a slight reduction in the optimal number of clusters while maintaining precision, favoring a higher $R$. Conversely, reducing the cost per cluster ($c_1$) typically leads to an increase in the optimal $G$, as more clusters can be sampled within the fixed budget. Additionally, when $\gamma^2$ is smaller, suggesting reduced between-cluster variability, there is a greater tendency to allocate resources to more clusters rather than more observations within each cluster. 
+
+This overall pattern underscores the trade-off between capturing between-cluster variability effectively and optimizing resource allocation to minimize the variance of the treatment effect estimates. Compared to the Normal outcome models, the Poisson models show a greater degree of sensitivity to cost changes, and higher variability in optimal $G$. 
+
+
+**Table 1** summarizes the performance measures of the optimal design across different data-generating settings for Normal and Poisson models. When the design is optimal—indicated by a relatively low variance of the estimated treatment effect ($Var(\hat{\beta})$)—the coverage probability and power are consistently high (both reaching 1 in almost all cases), which is an expected outcome. A lower variance means that the estimates are more precise, reducing uncertainty, which in turn leads to narrower confidence intervals that are more likely to contain the true effect, hence achieving high coverage. Additionally, with greater precision, the study is more likely to detect a true effect when it exists, resulting in high power. This relationship between low variance, high coverage, and high power aligns well with theoretical expectations in experimental design and statistical inference. Moreover, the emparical bias is minimal across the designs, supporting the theoretical property that $\hat{\beta}$ is unbiased.
+
+A pattern emerges across different cost structures ($c_1$ and $c_2$) and variance components ($\gamma^2$ and $\sigma^2$). For instance, a lower within-cluster variance ($\sigma^2$) leads to smaller $Var(\hat{\beta})$, suggesting a higher precision in treatment effect estimates. When between-cluster variance ($\gamma^2$) is smaller, the optimal design typically involves more clusters ($G$) and fewer observations per cluster ($R$), optimizing the allocation of resources while maintaining precision. Changes in $c_1$ and $c_2$ also influence the design, with higher $c_2$ generally favoring fewer clusters and more observations within each cluster to minimize costs and achieve optimal variance. The trade-off between $G$ and $R$ appears to be well-balanced under these different scenarios, consistently maintaining low bias, high power, and sufficient coverage.
 
 ```{r}
 # Function to select the row with the minimum betahat_var for each group
@@ -709,7 +722,13 @@ kable_table
 
 # \textcolor{orange}{CONCLUSION}
 
+The results of our simulation study highlight the importance of balancing the number of clusters $G$ and the number of observations per cluster $R$ under varying cost structures to achieve optimal study designs. Across both Normal and Poisson outcome distributions, a consistent trend emerges: reducing $c_1$ or increasing $c_2$ tends to favor designs with more clusters and fewer observations per cluster, thereby reducing variability in the estimates of the treatment effect. Additionally, increasing $\gamma^2$ (between-cluster variance) generally leads to a preference for more clusters to adequately capture this variability, while increasing $\sigma^2$ (within-cluster variance) tends to increase the variance of the estimated treatment effect without significantly altering the optimal cluster structure. These patterns suggest that careful adjustments to cost parameters and cluster-level variability can substantially improve design efficiency.
+
+When the design is optimal—indicated by a relatively low variance of the estimated treatment effect—coverage probability and power are consistently high, reflecting strong statistical reliability. These results demonstrate that reducing the variance in the treatment effect estimate leads to increased robustness, as seen through higher coverage and power, while bias remains low or negligible. The analysis reveals that adjustments to $c_1$ and $c_2$ significantly influence the optimal design by favoring larger numbers of clusters, thereby minimizing variance. Overall, these findings underscore the importance of carefully considering cost structures and variance components in the design of cluster-randomized trials to achieve both efficiency and statistical robustness.
+
 # \textcolor{orange}{LIMITATIONS}
+
+One limitation of this study is the computational constraint that prevented us from exploring all possible combinations of $c_1$, $c_2$ and the variance parameters $\sigma^2$ and $\gamma^2$ in greater detail. The simulation process required substantial computational resources, making it infeasible to comprehensively evaluate the impact of each parameter under all possible conditions. Additionally, the limited scope of parameter settings may restrict the generalizability of the findings across different experimental designs. Future studies could benefit from employing advanced computational techniques or parallel processing to more thoroughly investigate the impact of varying these design parameters.
 
 # Data, and Code Availability
 
