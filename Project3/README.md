@@ -20,6 +20,10 @@ The simulation results showed that the optimal $G$ and $R$ are influenced by the
 
 **`PHP2550-Project3Main.pdf`**: the knitted report as .pdf.
 
+**`simulated_data`**: the sub-folder where the simulated data was stored.
+
+**`results`**: the sub-folder where the results were stored.
+
 ## Dependencies
 
 The following packages were used in this analysis:
