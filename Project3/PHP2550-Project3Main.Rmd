@@ -16,7 +16,7 @@ header-includes:
 abstract: |
   **Purpose:** Our study aims to determine the optimal number of clusters ($G$) and observations per cluster ($R$) under a fixed budget ($B$) to maximize the efficiency of treatment effect estimates in a cluster randomized trial. The budget constraint includes a higher cost for the initial observation in each cluster ($c_1$) compared to subsequent observations ($c_2$, where $c_2 < c_1$), simulating a realistic cost structure in study designs. We conduct simulations to explore different parameter settings, including cost ratios ($c_1/c_2$), within-cluster and between-cluster variances, and outcome distributions (Normal vs. Poisson). The goal is to find the configuration that yields the most precise estimate of the treatment effect while maintaining an efficient use of resources.
   
-  **Methods**: In this study, we conducted a series of simulation experiments under the ADEMP framework to investigate the impact of different design choices on the efficiency of treatment effect estimates under a fixed budget constraint ($B$). The number of clusters ($G$), was systematically iterated/varied to explore their effect on the variance of the estimated treatment effect ($\hat{\beta}$). For each value of $G$, the maximum feasible value of observations per cluster ($R$) was determined to remain within budget. We then simulated data 50 times for each combination of $G$ and $R$ and fitted hierarchical models and mixed-effect regressions to obtain estimates of $\hat{\beta}$. Additionally, we examined the influence of other parameters, such as within-cluster variance ($\sigma^2$) for Y~Normal, between-cluster variance ($\gamma^2$) for both Y~Normal and Poisson, and cost ratio structures $c_1/c_2$ to investigate their impacts on finding the optimal design. Key performance measures included variance, empirical bias, MSE, coverage probability, and power of the estimated treatment effects. This allowed us to derive insights into the trade-offs between cluster size and cluster composition for efficient resource allocation.    
+  **Methods**: In this study, we conducted a series of simulation experiments under the ADEMP framework to investigate the impact of different design choices on the efficiency of treatment effect estimates under a fixed budget constraint ($B$). The number of clusters ($G$), was systematically iterated/varied to explore their effect on the variance of the estimated treatment effect ($\hat{\beta}$). For each value of $G$, the maximum feasible value of observations per cluster ($R$) was determined to remain within budget. We then simulated data 100 times for each combination of $G$ and $R$ and fitted hierarchical models and mixed-effect regressions to obtain estimates of $\hat{\beta}$. Additionally, we examined the influence of other parameters, such as within-cluster variance ($\sigma^2$) for Y~Normal, between-cluster variance ($\gamma^2$) for both Y~Normal and Poisson, and cost ratio structures $c_1/c_2$ to investigate their impacts on finding the optimal design. Key performance measures included variance, empirical bias, MSE, coverage probability, and power of the estimated treatment effects. This allowed us to derive insights into the trade-offs between cluster size and cluster composition for efficient resource allocation.    
   
   **Results and conclusion**: The simulation results showed that the optimal $G$ and $R$ are influenced by the relative costs ($c_1/c_2$) and the variance components ($\gamma^2$, $\sigma^2$). When the cost of adding clusters ($c_1$) is reduced or the cost of adding observations within clusters ($c_2$) is increased, the optimal design tends to favor more clusters with fewer observations per cluster. Reducing between-cluster variability ($\gamma^2$) generally leads to a preference for fewer clusters, while increasing within-cluster variability ($\sigma^2$) requires more clusters to minimize variance. Across different scenarios, minimizing the variance of the treatment effect estimate consistently led to high coverage probability and power, highlighting the robustness of the chosen optimal designs.
 
@@ -147,8 +147,8 @@ The evaluation process involves conducting repeated simulations across a range o
       \]
       where $c_2$ is the cost of additional samples within a cluster.
 
-  2) **Simulating 50 Times for Each Combination of $G$ and $R$**:
-    - For each combination of $G$ and $R$, we conduct 50 repeated simulations to generate datasets and fit the mixed-effect regression models. This helps us estimate the variance of the treatment effect ($\text{Var}(\hat{\beta})$) for that specific design configuration.
+  2) **Simulating 100 Times for Each Combination of $G$ and $R$**:
+    - For each combination of $G$ and $R$, we conduct 100 repeated simulations to generate datasets and fit the mixed-effect regression models. This helps us estimate the variance of the treatment effect ($\text{Var}(\hat{\beta})$) for that specific design configuration.
 
   3) **Optimization to find the optimal combination**:
     - After running through all possible combinations of $G$ and $R$, the optimal combination is selected based on the variance of $\hat{\beta}$. Specifically, we aim to **find the combination of $G$ and $R$ that results in the smallest variance of $\hat{\beta}$**, indicating the most precise estimate under the given budget.
@@ -509,7 +509,7 @@ Normal_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("lm
   result <- find_optimal_G_R(dist = "Normal", alpha = alpha, beta = beta, 
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
-                             n_simulations = 50)
+                             n_simulations = 100)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -586,7 +586,7 @@ Poisson_combined_results <- foreach(i = 1:12, .combine = rbind, .packages = c("l
   result <- find_optimal_G_R(dist = "Poisson", alpha = alpha, beta = beta, 
                              gamma_sq = gamma_sq, sigma_sq = sigma_sq, 
                              B = B, c1 = c1, c2 = c2,
-                             n_simulations = 50)
+                             n_simulations = 100)
   
   # Add the group to the result for plotting
   result$group <- paste0("Group ", ceiling(i / 3))
@@ -725,7 +725,7 @@ When the design is optimal—indicated by a relatively low variance of the estim
 
 # \textcolor{orange}{LIMITATIONS}
 
-One limitation of this study is the computational constraint that prevented us from exploring all possible combinations of $c_1$, $c_2$ and the variance parameters $\sigma^2$ and $\gamma^2$ in greater detail. The simulation process required substantial computational resources, making it unfeasible to comprehensively evaluate the impact of each parameter under all possible conditions. Also, the number of iterations executed was kept 50 in this study instead of 100 or higher due to the limited computational capacility of personal computers. Additionally, the limited scope of parameter settings may restrict the generalizability of the findings across different experimental designs. Future studies could benefit from employing advanced computational techniques or parallel processing and cloud computing  to more thoroughly investigate the impact of varying these design parameters.
+One limitation of this study is the computational constraint that prevented us from exploring all possible combinations of $c_1$, $c_2$ and the variance parameters $\sigma^2$ and $\gamma^2$ in greater detail. The simulation process required substantial computational resources, making it unfeasible to comprehensively evaluate the impact of each parameter under all possible conditions. Also, the number of iterations executed was kept 100 in this study instead of a higher number due to the limited computational capacility of personal computers. Additionally, the limited scope of parameter settings may restrict the generalizability of the findings across different experimental designs. Future studies could benefit from employing advanced computational techniques or parallel processing and cloud computing  to more thoroughly investigate the impact of varying these design parameters.
 
 # Data and Code Availability
 
